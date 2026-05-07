@@ -1,0 +1,486 @@
+/* 游戏样式文件 */
+
+/* 强制禁止缩放和系统手势 */
+* { 
+    touch-action: manipulation; 
+    -webkit-tap-highlight-color: transparent; 
+    user-select: none; 
+    box-sizing: border-box; 
+}
+
+body { 
+    margin: 0; 
+    overflow: hidden; 
+    font-family: 'Segoe UI', Arial, sans-serif; 
+    background: #130f40; 
+}
+
+/* 顶部状态栏 - 紧凑型 */
+#status-bar {
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 50px;
+    background: rgba(255, 255, 255, 0.95); 
+    display: flex; 
+    justify-content: space-around; 
+    align-items: center;
+    z-index: 100; 
+    border-bottom: 3px solid #f1c40f; 
+    padding: 0 10px;
+}
+
+.stat-item { 
+    font-size: 16px; 
+    font-weight: bold; 
+    color: #2c3e50; 
+}
+
+.stat-item span { 
+    color: #e74c3c; 
+}
+
+.lvl-tag { 
+    font-size: 12px; 
+    background: #34495e; 
+    color: white; 
+    padding: 2px 6px; 
+    border-radius: 4px; 
+}
+
+.version-tag { 
+    font-size: 11px; 
+    background: #9b59b6; 
+    color: white; 
+    padding: 2px 6px; 
+    border-radius: 4px; 
+    font-weight: bold;
+}
+
+.pause-btn {
+    border: none;
+    border-radius: 6px;
+    background: #f1c40f;
+    color: #16213e;
+    font-size: 20px;
+    font-weight: 900;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    line-height: 34px;
+    cursor: pointer;
+}
+
+/* 底部武器库 - 紧凑型 */
+#bottom-nav {
+    position: fixed; 
+    bottom: 0; 
+    left: 0; 
+    width: 100%;
+    background: rgba(255, 255, 255, 0.95); 
+    padding: 10px;
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px;
+    z-index: 100; 
+    border-top: 3px solid #f1c40f;
+}
+
+.shop-row { 
+    display: flex; 
+    gap: 6px; 
+}
+
+.weapon-btn {
+    flex: 1; 
+    padding: 8px 0; 
+    border: none; 
+    border-radius: 10px; 
+    color: white; 
+    font-weight: bold; 
+    font-size: 12px; 
+    text-align: center;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.2);
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.weapon-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+}
+
+.weapon-btn:disabled { 
+    background: #95a5a6 !important; 
+    opacity: 0.6; 
+    box-shadow: none; 
+    cursor: not-allowed;
+}
+
+#btn1 { background: #26de81; } 
+#btn2 { background: #45aaf2; } 
+#btn3 { background: #a55eea; }
+
+.price-tag { 
+    display: block; 
+    font-size: 10px; 
+    opacity: 0.9; 
+}
+
+#btnSell { 
+    width: 100%; 
+    padding: 8px; 
+    background: #eb4d4b; 
+    color: white; 
+    border: none; 
+    border-radius: 8px; 
+    font-weight: bold; 
+    font-size: 13px;
+    cursor: pointer;
+}
+
+#btnSell.active { 
+    background: #ff7979; 
+    border: 2px solid white; 
+}
+
+/* 覆盖层 */
+#overlay {
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%;
+    background: rgba(0,0,0,0.85); 
+    z-index: 200;
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+}
+
+.dialog {
+    background: white; 
+    padding: 20px; 
+    border-radius: 8px; 
+    text-align: center;
+    width: 85%; 
+    max-width: 420px; 
+    border: 4px solid #f1c40f;
+    animation: dialogPop 0.3s ease-out;
+}
+
+@keyframes dialogPop {
+    from {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.dialog h2 { 
+    margin: 0 0 10px 0; 
+    font-size: 20px; 
+}
+
+.main-menu {
+    background: #f8fafc;
+    color: #16213e;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.35);
+}
+
+.main-menu h2 {
+    font-size: 28px;
+    letter-spacing: 0;
+}
+
+.menu-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.menu-btn {
+    min-height: 58px;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1.2;
+    padding: 10px 12px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+    transition: transform 0.1s, box-shadow 0.1s, filter 0.15s;
+}
+
+.menu-btn:hover {
+    filter: brightness(1.05);
+}
+
+.menu-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+}
+
+.start-btn { background: #16a085; }
+.debug-entry { background: #2980b9; }
+.enemy-entry { background: #c0392b; }
+.tower-entry { background: #8e44ad; }
+
+.level-select {
+    margin-top: 15px;
+    padding: 12px;
+    border-radius: 8px;
+    background: #16213e;
+    text-align: left;
+}
+
+.level-select label {
+    color: #fff;
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.level-select select {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: none;
+    background: #2c3e50;
+    color: #fff;
+}
+
+.confirm-debug,
+.cancel-debug {
+    color: #fff;
+    padding: 10px;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.confirm-debug { background: #27ae60; }
+.cancel-debug { background: #7f8c8d; margin-top: 8px; }
+
+.debug-btn {
+    font-size: 11px !important;
+    border: 2px dashed rgba(255,255,255,0.5);
+}
+
+.dialog p { 
+    font-size: 14px; 
+    margin-bottom: 20px; 
+}
+
+#endScreen {
+    position: fixed; 
+    top: 30%; 
+    left: 50%; 
+    transform: translateX(-50%);
+    text-align: center; 
+    display: none; 
+    z-index: 150; 
+    width: 90%;
+    animation: endScreenFade 0.5s ease-out;
+}
+
+@keyframes endScreenFade {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+#msg { 
+    font-size: 36px; 
+    font-weight: 900; 
+    color: white; 
+    text-shadow: 0 4px 10px rgba(0,0,0,0.8); 
+    margin-bottom: 20px;
+}
+
+#flashOverlay {
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%;
+    background: rgba(231, 76, 60, 0.4); 
+    z-index: 180; 
+    display: none; 
+    pointer-events: none;
+}
+
+.pause-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 240;
+    background: rgba(7, 12, 24, 0.76);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.pause-panel {
+    width: min(360px, 92vw);
+    background: #f8fafc;
+    border: 4px solid #f1c40f;
+    border-radius: 8px;
+    padding: 18px;
+    text-align: center;
+    box-shadow: 0 26px 80px rgba(0,0,0,0.45);
+    animation: dialogPop 0.2s ease-out;
+}
+
+.pause-panel h2 {
+    margin: 0 0 14px;
+    color: #16213e;
+    font-size: 24px;
+}
+
+.pause-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.pause-action {
+    border: none;
+    border-radius: 8px;
+    min-height: 46px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+}
+
+.pause-action:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+}
+
+.resume-action { background: #16a085; }
+.home-action { background: #2c3e50; }
+.restart-action { background: #2980b9; }
+.sound-action { background: #8e44ad; }
+
+canvas { 
+    display: block; 
+}
+
+.gallery-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 260;
+    background: rgba(7, 12, 24, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 22px;
+}
+
+.gallery-panel {
+    width: min(1100px, 96vw);
+    max-height: 92vh;
+    overflow: auto;
+    background: #f8fafc;
+    border: 4px solid #f1c40f;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 30px 100px rgba(0,0,0,0.45);
+}
+
+.gallery-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.gallery-header h2 {
+    margin: 0;
+    font-size: 24px;
+    color: #16213e;
+}
+
+.gallery-header p {
+    margin: 4px 0 0;
+    color: #5f6f89;
+    font-size: 13px;
+}
+
+.gallery-close {
+    border: none;
+    border-radius: 8px;
+    background: #2c3e50;
+    color: #fff;
+    font-weight: 800;
+    padding: 10px 14px;
+    cursor: pointer;
+}
+
+.model-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(120px, 1fr));
+    gap: 12px;
+}
+
+.model-card {
+    background: #ffffff;
+    border: 1px solid #d7dee8;
+    border-radius: 8px;
+    min-height: 158px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.model-view {
+    height: 104px;
+    border-radius: 6px;
+    background: radial-gradient(circle at 50% 40%, #eef6ff 0%, #cad6e2 100%);
+    overflow: hidden;
+}
+
+.model-name {
+    color: #16213e;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.2;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+/* 响应式调整 */
+@media (max-width: 400px) {
+    .stat-item { font-size: 14px; }
+    .weapon-btn { font-size: 11px; }
+    .dialog { width: 90%; }
+    .menu-actions { grid-template-columns: 1fr; }
+    .menu-btn { min-height: 48px; }
+    .gallery-overlay { padding: 10px; }
+    .gallery-panel { padding: 12px; }
+    .model-grid {
+        grid-template-columns: repeat(5, 112px);
+        overflow-x: auto;
+        padding-bottom: 6px;
+    }
+}
