@@ -119,13 +119,16 @@ function getGalleryModels(type) {
         { name: 'Mission 2 Boss', build: () => createTankBossPreview(2) },
         { name: 'Final Boss Alpha', build: () => {
             const group = new THREE.Group();
+            createSteelGorillaBoss(group);
+            return group;
+        } },
+        { name: 'Final Boss Beta Helicopter', build: () => {
+            const group = new THREE.Group();
             createHelicopterBoss(group);
             return group;
         } },
-        { name: 'Final Boss Beta', build: () => {
-            const group = new THREE.Group();
-            createSharkRobotBoss(group);
-            return group;
+        { name: 'Final Boss Beta Helicopter Edited', build: () => {
+            return createImportedChopperModel(THREE);
         } }
     ];
 }

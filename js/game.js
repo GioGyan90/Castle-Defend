@@ -33,6 +33,14 @@ let isDebugMode = false;
 let isPaused = false;
 const enemies = [], bullets = [], weapons = [], particles = [], damageTexts = [], slots = [];
 let pathPoints = [];
+let alternateEnemyPathPoints = [];
+const weaponDamageStats = [];
+let weaponSerial = 0;
+const WEAPON_DISPLAY_NAMES = {
+    1: getWeaponConfig(1).name,
+    2: getWeaponConfig(2).name,
+    3: getWeaponConfig(3).name
+};
 
 // ==================== Three.js 场景设置 ====================
 const scene = new THREE.Scene(); 
@@ -58,6 +66,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
+renderer.domElement.id = 'gameCanvas';
 
 // 灯光
 const light = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -65,238 +74,38 @@ light.position.set(10, 30, 10);
 scene.add(light);
 scene.add(new THREE.AmbientLight(0xffffff, 0.7));
 
-// 城堡 - 包含主塔、副塔、城墙、院子、城门
-const castle = new THREE.Group();
+// Base model is defined separately; the map only controls endpoint placement.
+const castle = createSpaceBaseModel(THREE);
 let castleShakeTime = 0; // 城堡震动计时器
 
 function shakeCastle(duration) {
     castleShakeTime = duration;
 }
 
-function createCastle() {
-    castle.clear();
-    
-    // 材质定义
-    const mainTowerMat = new THREE.MeshPhongMaterial({ color: 0x2c3e50, emissive: 0x1a252f, emissiveIntensity: 0.2 });
-    const towerTopMat = new THREE.MeshPhongMaterial({ color: 0x34495e, emissive: 0x2c3e50, emissiveIntensity: 0.3 });
-    const wallMat = new THREE.MeshPhongMaterial({ color: 0x34495e, emissive: 0x1a252f, emissiveIntensity: 0.1 });
-    const gateMat = new THREE.MeshPhongMaterial({ color: 0x1a1a2e, emissive: 0x0f0f1a, emissiveIntensity: 0.2 });
-    const accentMat = new THREE.MeshPhongMaterial({ color: 0x00d2d3, emissive: 0x00d2d3, emissiveIntensity: 0.5 });
-    const floorMat = new THREE.MeshPhongMaterial({ color: 0x2c3e50, emissive: 0x1a252f, emissiveIntensity: 0.1 });
-    
-    // === 主塔（中央高塔）===
-    const mainTower = new THREE.Group();
-    const mainTowerBody = new THREE.Mesh(
-        new THREE.BoxGeometry(3, 8, 3),
-        mainTowerMat
-    );
-    mainTowerBody.position.y = 4;
-    mainTower.add(mainTowerBody);
-    
-    // 主塔顶部（金字塔形）
-    const mainTowerRoof = new THREE.Mesh(
-        new THREE.ConeGeometry(2.5, 3, 4),
-        towerTopMat
-    );
-    mainTowerRoof.position.y = 9.5;
-    mainTowerRoof.rotation.y = Math.PI / 4;
-    mainTower.add(mainTowerRoof);
-    
-    // 主塔装饰灯带
-    const towerLightStrip1 = new THREE.Mesh(
-        new THREE.BoxGeometry(3.2, 0.1, 3.2),
-        accentMat
-    );
-    towerLightStrip1.position.y = 7.5;
-    mainTower.add(towerLightStrip1);
-    
-    const towerLightStrip2 = new THREE.Mesh(
-        new THREE.BoxGeometry(3.1, 0.1, 3.1),
-        accentMat
-    );
-    towerLightStrip2.position.y = 5;
-    mainTower.add(towerLightStrip2);
-    
-    // 主塔窗户（发光）
-    const windowGeo = new THREE.BoxGeometry(0.4, 0.6, 0.1);
-    const windowMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
-    for (let i = 0; i < 2; i++) {
-        const win1 = new THREE.Mesh(windowGeo, windowMat);
-        win1.position.set(-0.8, 6, 1.5);
-        mainTower.add(win1);
-        const win2 = win1.clone();
-        win2.position.set(0.8, 6, 1.5);
-        mainTower.add(win2);
-        const win3 = win1.clone();
-        win3.position.set(0, 3, 1.5);
-        mainTower.add(win3);
-    }
-    
-    castle.add(mainTower);
-    
-    // === 四个副塔（角落）===
-    const turretPositions = [
-        { x: -4, z: -2 },
-        { x: 4, z: -2 },
-        { x: -4, z: 2 },
-        { x: 4, z: 2 }
-    ];
-    
-    turretPositions.forEach(pos => {
-        const turret = new THREE.Group();
-        const turretBase = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.8, 1, 4, 8),
-            wallMat
-        );
-        turretBase.position.y = 2;
-        turret.add(turretBase);
-        
-        // 副塔顶部（圆锥形）
-        const turretRoof = new THREE.Mesh(
-            new THREE.ConeGeometry(1.2, 2, 8),
-            towerTopMat
-        );
-        turretRoof.position.y = 5;
-        turret.add(turretRoof);
-        
-        // 副塔灯带
-        const turretLight = new THREE.Mesh(
-            new THREE.TorusGeometry(1.1, 0.08, 8, 16),
-            accentMat
-        );
-        turretLight.rotation.x = Math.PI / 2;
-        turretLight.position.y = 3.8;
-        turret.add(turretLight);
-        
-        turret.position.set(pos.x, 0, pos.z);
-        castle.add(turret);
-    });
-    
-    // === 城墙（连接副塔）===
-    // 前墙（带城门）
-    const frontWallLeft = new THREE.Mesh(
-        new THREE.BoxGeometry(3.5, 3, 0.8),
-        wallMat
-    );
-    frontWallLeft.position.set(-2.25, 1.5, -4);
-    castle.add(frontWallLeft);
-    
-    const frontWallRight = new THREE.Mesh(
-        new THREE.BoxGeometry(3.5, 3, 0.8),
-        wallMat
-    );
-    frontWallRight.position.set(2.25, 1.5, -4);
-    castle.add(frontWallRight);
-    
-    // 后墙
-    const backWall = new THREE.Mesh(
-        new THREE.BoxGeometry(9, 3, 0.8),
-        wallMat
-    );
-    backWall.position.set(0, 1.5, 4);
-    castle.add(backWall);
-    
-    // 左墙
-    const leftWall = new THREE.Mesh(
-        new THREE.BoxGeometry(0.8, 3, 6),
-        wallMat
-    );
-    leftWall.position.set(-5, 1.5, 0);
-    castle.add(leftWall);
-    
-    // 右墙
-    const rightWall = new THREE.Mesh(
-        new THREE.BoxGeometry(0.8, 3, 6),
-        wallMat
-    );
-    rightWall.position.set(5, 1.5, 0);
-    castle.add(rightWall);
-    
-    // 城墙顶部灯带
-    const wallTopMat = new THREE.MeshBasicMaterial({ color: 0x00d2d3 });
-    const frontWallTopL = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.1, 0.9), wallTopMat);
-    frontWallTopL.position.set(-2.25, 3, -4);
-    castle.add(frontWallTopL);
-    
-    const frontWallTopR = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.1, 0.9), wallTopMat);
-    frontWallTopR.position.set(2.25, 3, -4);
-    castle.add(frontWallTopR);
-    
-    const backWallTop = new THREE.Mesh(new THREE.BoxGeometry(9, 0.1, 0.9), wallTopMat);
-    backWallTop.position.set(0, 3, 4);
-    castle.add(backWallTop);
-    
-    const leftWallTop = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.1, 6), wallTopMat);
-    leftWallTop.position.set(-5, 3, 0);
-    castle.add(leftWallTop);
-    
-    const rightWallTop = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.1, 6), wallTopMat);
-    rightWallTop.position.set(5, 3, 0);
-    castle.add(rightWallTop);
-    
-    // === 城门（双开门）===
-    const gateLeft = new THREE.Mesh(
-        new THREE.BoxGeometry(1.5, 2.5, 0.3),
-        gateMat
-    );
-    gateLeft.position.set(-1, 1.25, -3.5);
-    castle.add(gateLeft);
-    
-    const gateRight = new THREE.Mesh(
-        new THREE.BoxGeometry(1.5, 2.5, 0.3),
-        gateMat
-    );
-    gateRight.position.set(1, 1.25, -3.5);
-    castle.add(gateRight);
-    
-    // 城门拱顶
-    const gateArch = new THREE.Mesh(
-        new THREE.TorusGeometry(1.8, 0.2, 8, 16, Math.PI),
-        wallMat
-    );
-    gateArch.position.set(0, 2.5, -3.5);
-    gateArch.rotation.x = Math.PI / 2;
-    castle.add(gateArch);
-    
-    // 城门上方装饰灯
-    const gateLight = new THREE.Mesh(
-        new THREE.BoxGeometry(2, 0.15, 0.5),
-        accentMat
-    );
-    gateLight.position.set(0, 3.2, -3.6);
-    castle.add(gateLight);
-    
-    // === 院子地面 ===
-    const courtyard = new THREE.Mesh(
-        new THREE.BoxGeometry(8, 0.2, 6),
-        floorMat
-    );
-    courtyard.position.set(0, 0.1, 0);
-    castle.add(courtyard);
-    
-    // 院子地面网格线（赛博风格）
-    const gridMat = new THREE.LineBasicMaterial({ color: 0x00d2d3, transparent: true, opacity: 0.4 });
-    const gridLines = new THREE.Group();
-    for (let i = -4; i <= 4; i += 1) {
-        const line1 = new THREE.Mesh(
-            new THREE.BoxGeometry(0.05, 0.21, 6),
-            new THREE.MeshBasicMaterial({ color: 0x00d2d3, transparent: true, opacity: 0.3 })
-        );
-        line1.position.set(i, 0, 0);
-        gridLines.add(line1);
-    }
-    for (let i = -3; i <= 3; i += 1) {
-        const line2 = new THREE.Mesh(
-            new THREE.BoxGeometry(8, 0.21, 0.05),
-            new THREE.MeshBasicMaterial({ color: 0x00d2d3, transparent: true, opacity: 0.3 })
-        );
-        line2.position.set(0, 0, i);
-        gridLines.add(line2);
-    }
-    castle.add(gridLines);
+function flashBaseAlert(duration = 420) {
+    if (!castle.userData || !castle.userData.hitAlertMaterial) return;
+    castle.userData.hitAlertDuration = duration;
+    castle.userData.hitAlertTime = duration;
 }
 
-createCastle();
+function updateBaseAlert(deltaMs) {
+    if (!castle.userData || !castle.userData.hitAlertMaterial) return;
+    const duration = castle.userData.hitAlertDuration || 420;
+    castle.userData.hitAlertTime = Math.max(0, (castle.userData.hitAlertTime || 0) - deltaMs);
+
+    if (castle.userData.hitAlertTime <= 0) {
+        castle.userData.hitAlertMaterial.opacity = 0;
+        return;
+    }
+
+    const progress = 1 - castle.userData.hitAlertTime / duration;
+    castle.userData.hitAlertMaterial.opacity = Math.sin(progress * Math.PI) * 0.95;
+}
+
+function setGameDimmed(isDimmed) {
+    document.body.classList.toggle('game-dimmed', isDimmed);
+}
+
 scene.add(castle);
 
 // ==================== 地图构建 ====================
@@ -314,6 +123,7 @@ function buildMap() {
     slots.length = 0;
     const cfg = LEVELS[currentLevel];
     pathPoints = cfg.points.map(p => new THREE.Vector3(p[0], 0, p[1]));
+    alternateEnemyPathPoints = cfg.altEnemyPoints ? cfg.altEnemyPoints.map(p => new THREE.Vector3(p[0], 0, p[1])) : [];
     
     // 地面
     const ground = new THREE.Mesh(
@@ -324,19 +134,19 @@ function buildMap() {
     ground.position.y = -0.1;
     scene.add(ground);
     
-    // 路径 - 赛博公路风格（亮灰路面 + 内嵌黄色点缀灯光）
-    pathPoints.forEach((pt, i) => {
-        if (i < pathPoints.length - 1) {
-            const nextPt = pathPoints[i + 1];
-            const dx = Math.abs(nextPt.x - pt.x);
-            const dz = Math.abs(nextPt.z - pt.z);
+    const drawRoadPath = (points) => {
+        points.forEach((pt, i) => {
+            if (i >= points.length - 1) return;
+            const nextRoadPt = points[i + 1];
+            const dx = Math.abs(nextRoadPt.x - pt.x);
+            const dz = Math.abs(nextRoadPt.z - pt.z);
             
             // 路面主体（亮灰色）
             const roadBase = new THREE.Mesh(
                 new THREE.BoxGeometry(dx || 2, 0.15, dz || 2), 
                 new THREE.MeshPhongMaterial({ color: 0x636e72, emissive: 0x2d3436, emissiveIntensity: 0.2 })
             );
-            roadBase.position.set((pt.x + nextPt.x) / 2, 0.01, (pt.z + nextPt.z) / 2);
+            roadBase.position.set((pt.x + nextRoadPt.x) / 2, 0.01, (pt.z + nextRoadPt.z) / 2);
             scene.add(roadBase);
             
             // 内嵌黄色点缀灯光（分段式小方块，像 LED 灯珠）
@@ -345,8 +155,8 @@ function buildMap() {
             
             for (let s = 0; s < segments; s++) {
                 const t = (s + 0.5) / segments;
-                const stripX = pt.x + (nextPt.x - pt.x) * t;
-                const stripZ = pt.z + (nextPt.z - pt.z) * t;
+                const stripX = pt.x + (nextRoadPt.x - pt.x) * t;
+                const stripZ = pt.z + (nextRoadPt.z - pt.z) * t;
                 
                 const lightDot = new THREE.Mesh(
                     new THREE.BoxGeometry(dx > 0 ? dotSize : 0.15, 0.16, 
@@ -358,24 +168,27 @@ function buildMap() {
             }
             
             // 道路边缘蓝色霓虹灯带
-            const edgeOffset = dx > 0 ? 1 : 0.1;
-            const edgeZOffset = dz > 0 ? 1 : 0.1;
-            
             const edgeLight1 = new THREE.Mesh(
                 new THREE.BoxGeometry(dx || 0.1, 0.12, dz || 0.1),
                 new THREE.MeshBasicMaterial({ color: 0x00d2d3, transparent: true, opacity: 0.6 })
             );
-            edgeLight1.position.set((pt.x + nextPt.x) / 2, 0.02, (pt.z + nextPt.z) / 2 + (dz > 0 ? 0.8 : 0));
+            edgeLight1.position.set((pt.x + nextRoadPt.x) / 2, 0.02, (pt.z + nextRoadPt.z) / 2 + (dz > 0 ? 0.8 : 0));
             scene.add(edgeLight1);
             
             const edgeLight2 = new THREE.Mesh(
                 new THREE.BoxGeometry(dx || 0.1, 0.12, dz || 0.1),
                 new THREE.MeshBasicMaterial({ color: 0x00d2d3, transparent: true, opacity: 0.6 })
             );
-            edgeLight2.position.set((pt.x + nextPt.x) / 2, 0.02, (pt.z + nextPt.z) / 2 - (dz > 0 ? 0.8 : 0));
+            edgeLight2.position.set((pt.x + nextRoadPt.x) / 2, 0.02, (pt.z + nextRoadPt.z) / 2 - (dz > 0 ? 0.8 : 0));
             scene.add(edgeLight2);
-        }
-    });
+        });
+    };
+
+    // 路径 - 赛博公路风格（亮灰路面 + 内嵌黄色点缀灯光）
+    drawRoadPath(pathPoints);
+    if (cfg.altRoadPoints) {
+        drawRoadPath(cfg.altRoadPoints.map(p => new THREE.Vector3(p[0], 0, p[1])));
+    }
     
     // 武器槽位
     cfg.slots.forEach(pos => {
@@ -407,15 +220,19 @@ function buildMap() {
         scene.add(lake);
     }
     
-    // 城堡位置（道路尽头的最后一个点）
+    // Endpoint base position and gate direction.
     const castlePos = pathPoints[pathPoints.length - 1].clone();
+    const approachPos = pathPoints[pathPoints.length - 2];
+    const approachDir = approachPos.clone().sub(castlePos);
     castle.position.copy(castlePos);
+    castle.rotation.y = Math.atan2(-approachDir.x, -approachDir.z);
     castleShakeTime = 0; // 重置震动状态
 }
 
 // ==================== 游戏流程控制 ====================
 function startGame(debug = false) {
     if (!isMuted) audioCtx.resume();
+    setGameDimmed(false);
     isDebugMode = debug;
     isPaused = false;
     document.getElementById('overlay').style.display = 'none';
@@ -436,6 +253,7 @@ function startGame(debug = false) {
 }
 
 function clearRunObjects() {
+    setGameDimmed(false);
     enemies.forEach(e => scene.remove(e.mesh));
     enemies.length = 0;
     bullets.forEach(b => {
@@ -450,6 +268,8 @@ function clearRunObjects() {
     damageTexts.forEach(d => scene.remove(d.sprite));
     damageTexts.length = 0;
     slots.length = 0;
+    weaponDamageStats.length = 0;
+    weaponSerial = 0;
     selectedWeaponType = null;
     isSellMode = false;
 }
@@ -596,14 +416,24 @@ function handleInput(clientX, clientY) {
             const model = createWeaponModel(selectedWeaponType);
             model.position.copy(slot.userData.group.position);
             scene.add(model);
+            const weaponId = ++weaponSerial;
+            const weaponConfig = getWeaponConfig(selectedWeaponType);
+            const damageStat = {
+                id: weaponId,
+                type: selectedWeaponType,
+                label: `${WEAPON_DISPLAY_NAMES[selectedWeaponType]} #${weaponId}`,
+                totalDamage: 0
+            };
+            weaponDamageStats.push(damageStat);
             const wObj = {
                 mesh: model,
                 type: selectedWeaponType,
+                damageStat: damageStat,
                 basePosition: model.position.clone(),
                 lastFire: 0,
-                fireInterval: { 1: 520, 2: 1300, 3: 1950 }[selectedWeaponType],
+                fireInterval: weaponConfig.fireIntervalMs,
                 burstCount: 0,
-                burstTotal: 6
+                burstTotal: weaponConfig.burstTotal || 1
             };
             weapons.push(wObj);
             slot.userData.occupied = true;
@@ -648,6 +478,12 @@ function updateUI() {
     document.getElementById('scoreVal').innerText = score;
     document.getElementById('livesVal').innerText = lives;
     document.getElementById('levelVal').innerText = currentLevel;
+    [1, 2, 3].forEach(i => {
+        const priceEl = document.getElementById('price' + i);
+        if (priceEl) {
+            priceEl.innerText = `${PRICES[i]} Pts`;
+        }
+    });
     const teslaBtn = document.getElementById('btn3');
     teslaBtn.style.display = currentLevel === 1 ? 'none' : '';
     if (currentLevel === 1 && selectedWeaponType === 3) {
@@ -733,9 +569,7 @@ function createExplosionEffect(position, radius = 3) {
 }
 
 function checkVictoryAfterKill(killedIsBoss) {
-    if (killedIsBoss && currentLevel !== 3) {
-        endGame(true);
-    } else if (killedIsBoss && currentLevel === 3 && enemies.length === 0) {
+    if (killedIsBoss && bossSpawned && enemies.length === 0) {
         endGame(true);
     }
 }
@@ -843,6 +677,11 @@ function showDamageText(enemy, amount, isCrit = false) {
 function damageEnemy(enemy, amount, sourceBullet = null, fromExplosion = false) {
     if (!enemy || enemy.isDead) return;
     showDamageText(enemy, amount, !!(sourceBullet && sourceBullet.isCrit));
+    const effectiveDamage = Math.min(amount, Math.max(enemy.health, 0));
+    const sourceWeapon = sourceBullet && sourceBullet.ownerWeapon;
+    if (effectiveDamage > 0 && sourceWeapon && sourceWeapon.damageStat) {
+        sourceWeapon.damageStat.totalDamage += effectiveDamage;
+    }
     enemy.health -= amount;
     if (Math.abs(enemy.health) < 0.0001) {
         enemy.health = 0;
@@ -857,6 +696,84 @@ function damageEnemy(enemy, amount, sourceBullet = null, fromExplosion = false) 
     } else if (enemy.health === 0) {
         scheduleZeroHealthDecay(enemy);
     }
+}
+
+function formatDamageValue(value) {
+    return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function renderDamageSummary() {
+    const summaryEl = document.getElementById('damageSummary');
+    if (!summaryEl) return;
+
+    const stats = weaponDamageStats
+        .filter(stat => stat.totalDamage > 0)
+        .slice()
+        .sort((a, b) => b.totalDamage - a.totalDamage || a.id - b.id);
+
+    if (stats.length === 0) {
+        summaryEl.innerHTML = `
+            <div class="damage-summary-title">防御塔总伤害</div>
+            <div class="damage-empty">本局没有防御塔造成伤害。</div>
+        `;
+        return;
+    }
+
+    const rows = stats.map(stat => `
+        <div class="damage-row">
+            <span>${stat.label}</span>
+            <span class="damage-value">${formatDamageValue(stat.totalDamage)}</span>
+        </div>
+    `).join('');
+
+    summaryEl.innerHTML = `
+        <div class="damage-summary-title">防御塔总伤害</div>
+        ${rows}
+    `;
+}
+
+function getTargetForWeapon(w) {
+    const config = getWeaponConfig(w.type);
+    const range = config ? config.range : null;
+    if (range === null || range === undefined) {
+        return enemies.find(e => !e.isDead);
+    }
+
+    const maxRange = range;
+    let bestTarget = null;
+    let bestDistance = Infinity;
+    enemies.forEach(e => {
+        if (e.isDead) return;
+        const distance = w.mesh.position.distanceTo(e.mesh.position);
+        if (distance <= maxRange && distance < bestDistance) {
+            bestTarget = e;
+            bestDistance = distance;
+        }
+    });
+    return bestTarget;
+}
+
+function createEnemyFromConfig(enemyConfig) {
+    let enemyMesh;
+    if (enemyConfig.modelType === 'robot') {
+        enemyMesh = createRobotEnemy(false);
+    } else if (enemyConfig.modelType === 'eliteDrone') {
+        enemyMesh = createDroneEnemy(true);
+    } else if (enemyConfig.modelType === 'drone') {
+        enemyMesh = createDroneEnemy(false);
+    } else if (enemyConfig.modelType === 'armored') {
+        enemyMesh = createArmoredUnitEnemy();
+    } else if (enemyConfig.modelType === 'hoverArmor') {
+        enemyMesh = createHoverArmorEnemy();
+    } else {
+        enemyMesh = createRobotEnemy(false);
+    }
+
+    if (enemyConfig.scale) {
+        enemyMesh.scale.setScalar(enemyConfig.scale);
+    }
+
+    return enemyMesh;
 }
 
 // ==================== 游戏主循环 ====================
@@ -877,6 +794,7 @@ function gameLoop(time) {
         // 恢复摄像机正常位置
         adjustCamera();
     }
+    updateBaseAlert(16);
     
     // Boss 血条始终面向摄像机
     enemies.forEach(e => {
@@ -904,61 +822,26 @@ function gameLoop(time) {
         spawnTimer = 0;
         spawnedCount++;
         
-        let enemyMesh, health, speed, isDrone;
-        
-        // 第三关特殊兵种：无人机、装甲单位和悬浮装甲
-        if (currentLevel === 3) {
-            const rand = Math.random();
-            if (rand < 0.4) {
-                // 40% 无人机
-                enemyMesh = createDroneEnemy(false);
-                health = 5;
-                speed = 0.025;
-                isDrone = true;
-            } else if (rand < 0.8) {
-                // 40% 装甲单位
-                enemyMesh = createArmoredUnitEnemy();
-                health = 6;
-                speed = 0.015;
-                isDrone = false;
-            } else {
-                // 20% 悬浮装甲
-                enemyMesh = createHoverArmorEnemy();
-                enemyMesh.scale.setScalar(0.6);
-                health = 8;
-                speed = 0.03;
-                isDrone = true;
-            }
-        } else if (currentLevel === 2) {
-            const rand = Math.random();
-            if (rand < 0.2) {
-                enemyMesh = createArmoredUnitEnemy();
-                health = 6;
-                speed = 0.015;
-                isDrone = false;
-            } else {
-                const isDroneElite = rand < 0.35;
-                enemyMesh = isDroneElite ? createDroneEnemy(true) : createRobotEnemy(false);
-                health = isDroneElite ? 4 : 1;
-                speed = (0.03 + Math.random() * 0.02) * 0.6;
-                isDrone = isDroneElite;
-            }
-        } else {
-            const isDroneElite = Math.random() < 0.15;
-            enemyMesh = isDroneElite ? createDroneEnemy(true) : createRobotEnemy(false);
-            health = isDroneElite ? 4 : 1;
-            speed = (0.03 + Math.random() * 0.02) * 0.6;
-            isDrone = isDroneElite;
-        }
-        
+        const spawnConfig = chooseEnemyConfig(currentLevel);
+        const enemyMesh = createEnemyFromConfig(spawnConfig);
+        const health = spawnConfig.health;
+        const speed = getEnemySpeed(spawnConfig);
+        const isDrone = !!spawnConfig.isDrone;
+
+        const enemyPath = (currentLevel === 3 && alternateEnemyPathPoints.length > 0 && Math.random() < (LEVELS[3].altEnemyChance || 0))
+            ? alternateEnemyPathPoints
+            : pathPoints;
+
         const e = { 
             mesh: enemyMesh, 
             pathIdx: 0, 
+            pathPoints: enemyPath,
             health: health, 
             speed: speed,
-            isDrone: isDrone
+            isDrone: isDrone,
+            modelType: spawnConfig.modelType
         };
-        enemyMesh.position.copy(pathPoints[0]);
+        enemyMesh.position.copy(enemyPath[0]);
         scene.add(enemyMesh);
         enemies.push(e);
     } else if (spawnedCount >= LEVELS[currentLevel].enemies && enemies.length === 0 && !bossSpawned) {
@@ -977,7 +860,8 @@ function gameLoop(time) {
             continue;
         }
 
-        const target = pathPoints[e.pathIdx + 1];
+        const enemyPath = e.pathPoints || pathPoints;
+        const target = enemyPath[e.pathIdx + 1];
         if (!target) continue;
         
         const currentPos = e.mesh.position.clone();
@@ -989,12 +873,13 @@ function gameLoop(time) {
         
         if (dist < 0.5) {
             e.pathIdx++;
-            if (e.pathIdx >= pathPoints.length - 1) {
+            if (e.pathIdx >= enemyPath.length - 1) {
                 scene.remove(e.mesh);
                 enemies.splice(i, 1);
                 lives -= e.isBoss ? 5 : 1;
                 // 城堡被攻击：震动 + 音效
                 shakeCastle(300);
+                flashBaseAlert();
                 playTone(150, 'sawtooth', 0.3, 0.08);
                 updateUI();
                 if (lives <= 0) {
@@ -1057,7 +942,7 @@ function gameLoop(time) {
                 // 连发期间每发间隔约 217ms (1300ms / 6)
                 const burstInterval = w.fireInterval / w.burstTotal;
                 if (time - w.lastFire > burstInterval) {
-                    const target = enemies.find(e => !e.isDead);
+                    const target = getTargetForWeapon(w);
                     if (target) {
                         w.lastFire = time;
                         w.burstCount++;
@@ -1073,7 +958,7 @@ function gameLoop(time) {
         } else if (w.type === 3) {
             // Tesla: 激光攻击，充能效果
             if (time - w.lastFire > w.fireInterval) {
-                const target = enemies.find(e => !e.isDead);
+                const target = getTargetForWeapon(w);
                 if (target) {
                     w.lastFire = time;
                     
@@ -1082,7 +967,7 @@ function gameLoop(time) {
                     if (crystal) {
                         // 充能阶段：逐渐变亮并向上扩展
                         let chargePhase = 0;
-                        const chargeDuration = 500; // 充能时间 500ms
+                        const chargeDuration = getWeaponConfig(3).chargeTimeMs;
                         const chargeStartTime = Date.now();
                         
                         const chargeInterval = setInterval(() => {
@@ -1092,7 +977,8 @@ function gameLoop(time) {
                             // 颜色从暗紫到亮白
                             const brightness = Math.floor(progress * 255);
                             crystal.material.emissive.setRGB(progress, progress * 0.5, progress);
-                            crystal.scale.setScalar(1 + progress * 0.5);
+                            const baseScale = crystal.userData.baseScale || new THREE.Vector3(1, 1, 1);
+                            crystal.scale.copy(baseScale).multiplyScalar(1 + progress * 0.5);
                             
                             // 创建向上扩展的光环
                             if (progress < 1 && chargePhase % 3 === 0) {
@@ -1130,7 +1016,8 @@ function gameLoop(time) {
                                 setTimeout(() => {
                                     if (crystal) {
                                         crystal.material.emissive.setHex(0x000000);
-                                        crystal.scale.setScalar(1);
+                                        const baseScale = crystal.userData.baseScale || new THREE.Vector3(1, 1, 1);
+                                        crystal.scale.copy(baseScale);
                                     }
                                 }, 300);
                             }
@@ -1143,7 +1030,7 @@ function gameLoop(time) {
         } else {
             // Pulse (type 1): 普通攻击逻辑
             if (time - w.lastFire > w.fireInterval) {
-                const target = enemies.find(e => !e.isDead);
+                const target = getTargetForWeapon(w);
                 if (target) {
                     w.lastFire = time;
                     fireBullet(w, target, 3);
@@ -1165,7 +1052,7 @@ function gameLoop(time) {
                 // 计算敌人到激光线的距离（简化为到激光起点的距离）
                 const laserStart = b.mesh.position.clone();
                 if (e.mesh.position.distanceTo(laserStart) < b.aoeRadius) {
-                    damageEnemy(e, b.damage * 0.1, b); // Tesla 每帧 10%
+                    damageEnemy(e, b.damage * (b.teslaFrameDamageRatio || getWeaponConfig(3).teslaFrameDamageRatio), b);
                 }
             });
             
@@ -1262,6 +1149,7 @@ function gameLoop(time) {
 // ==================== 游戏结束处理 ====================
 function endGame(victory) {
     gameOver = true;
+    setGameDimmed(true);
     const msgEl = document.getElementById('msg');
     const endBtn = document.getElementById('endBtn');
     const endScreen = document.getElementById('endScreen');
@@ -1285,6 +1173,7 @@ function endGame(victory) {
         playTone(150, 'sawtooth', 0.5, 0.1);
     }
     
+    renderDamageSummary();
     endScreen.style.display = 'block';
 }
 
