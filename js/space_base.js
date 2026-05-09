@@ -50,30 +50,35 @@ function createSpaceBaseModel(THREE) {
     base.add(innerGlow);
 
     const wall = new THREE.Group();
-    addBox(wall, { x: 4.2, y: 1.1, z: 0.42 }, { x: -3.65, y: 1.15, z: -4.55 }, paleMat);
-    addBox(wall, { x: 4.2, y: 1.1, z: 0.42 }, { x: 3.65, y: 1.15, z: -4.55 }, paleMat);
-    addBox(wall, { x: 10.5, y: 1.1, z: 0.42 }, { x: 0, y: 1.15, z: 4.55 }, paleMat);
-    addBox(wall, { x: 0.42, y: 1.1, z: 8.5 }, { x: -5.45, y: 1.15, z: 0 }, paleMat);
-    addBox(wall, { x: 0.42, y: 1.1, z: 8.5 }, { x: 5.45, y: 1.15, z: 0 }, paleMat);
+    const wallSegments = [
+        { from: { x: -5.05, z: -2.85 }, to: { x: -2.05, z: -4.55 }, lights: 2 },
+        { from: { x: -5.45, z: 2.45 }, to: { x: -5.05, z: -2.85 }, lights: 3 },
+        { from: { x: -3.35, z: 4.55 }, to: { x: -5.45, z: 2.45 }, lights: 2 },
+        { from: { x: 3.35, z: 4.55 }, to: { x: -3.35, z: 4.55 }, lights: 3 },
+        { from: { x: 5.45, z: 2.45 }, to: { x: 3.35, z: 4.55 }, lights: 2 },
+        { from: { x: 5.05, z: -2.85 }, to: { x: 5.45, z: 2.45 }, lights: 3 },
+        { from: { x: 2.05, z: -4.55 }, to: { x: 5.05, z: -2.85 }, lights: 2 },
+        { from: { x: -2.05, z: -4.55 }, to: { x: -1.55, z: -4.55 }, lights: 1 },
+        { from: { x: 1.55, z: -4.55 }, to: { x: 2.05, z: -4.55 }, lights: 1 }
+    ];
 
-    addBox(wall, { x: 3.9, y: 0.12, z: 0.48 }, { x: -3.65, y: 1.78, z: -4.55 }, blueMat);
-    addBox(wall, { x: 3.9, y: 0.12, z: 0.48 }, { x: 3.65, y: 1.78, z: -4.55 }, blueMat);
-    addBox(wall, { x: 10.3, y: 0.12, z: 0.48 }, { x: 0, y: 1.78, z: 4.55 }, blueMat);
-    addBox(wall, { x: 0.48, y: 0.12, z: 8.3 }, { x: -5.45, y: 1.78, z: 0 }, blueMat);
-    addBox(wall, { x: 0.48, y: 0.12, z: 8.3 }, { x: 5.45, y: 1.78, z: 0 }, blueMat);
-    addAlertLight(wall, { x: 1.0, y: 0.18, z: 0.54 }, { x: -5.0, y: 2.02, z: -4.57 });
-    addAlertLight(wall, { x: 1.0, y: 0.18, z: 0.54 }, { x: -2.2, y: 2.02, z: -4.57 });
-    addAlertLight(wall, { x: 1.0, y: 0.18, z: 0.54 }, { x: 2.2, y: 2.02, z: -4.57 });
-    addAlertLight(wall, { x: 1.0, y: 0.18, z: 0.54 }, { x: 5.0, y: 2.02, z: -4.57 });
-    addAlertLight(wall, { x: 1.1, y: 0.18, z: 0.54 }, { x: -3.2, y: 2.02, z: 4.57 });
-    addAlertLight(wall, { x: 1.1, y: 0.18, z: 0.54 }, { x: 0, y: 2.02, z: 4.57 });
-    addAlertLight(wall, { x: 1.1, y: 0.18, z: 0.54 }, { x: 3.2, y: 2.02, z: 4.57 });
-    addAlertLight(wall, { x: 0.54, y: 0.18, z: 1.0 }, { x: -5.47, y: 2.02, z: -2.7 });
-    addAlertLight(wall, { x: 0.54, y: 0.18, z: 1.0 }, { x: -5.47, y: 2.02, z: 0.4 });
-    addAlertLight(wall, { x: 0.54, y: 0.18, z: 1.0 }, { x: -5.47, y: 2.02, z: 3.2 });
-    addAlertLight(wall, { x: 0.54, y: 0.18, z: 1.0 }, { x: 5.47, y: 2.02, z: -2.7 });
-    addAlertLight(wall, { x: 0.54, y: 0.18, z: 1.0 }, { x: 5.47, y: 2.02, z: 0.4 });
-    addAlertLight(wall, { x: 0.54, y: 0.18, z: 1.0 }, { x: 5.47, y: 2.02, z: 3.2 });
+    wallSegments.forEach(({ from, to, lights }) => {
+        const dx = to.x - from.x;
+        const dz = to.z - from.z;
+        const length = Math.hypot(dx, dz);
+        const center = { x: (from.x + to.x) / 2, z: (from.z + to.z) / 2 };
+        const rotY = Math.atan2(-dz, dx);
+
+        addBox(wall, { x: length, y: 1.1, z: 0.42 }, { x: center.x, y: 1.15, z: center.z }, paleMat, rotY);
+        addBox(wall, { x: Math.max(0.35, length - 0.22), y: 0.12, z: 0.48 }, { x: center.x, y: 1.78, z: center.z }, blueMat, rotY);
+
+        for (let i = 0; i < lights; i++) {
+            const t = (i + 1) / (lights + 1);
+            const x = from.x + dx * t;
+            const z = from.z + dz * t;
+            addAlertLight(wall, { x: Math.min(1.05, Math.max(0.5, length / (lights + 2))), y: 0.18, z: 0.54 }, { x, y: 2.02, z }, rotY);
+        }
+    });
     base.add(wall);
 
     const gate = new THREE.Group();
