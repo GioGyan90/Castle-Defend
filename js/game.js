@@ -38,41 +38,6 @@ const weaponDamageStats = [];
 let weaponSerial = 0;
 let levelStartTime = 0; // 关卡开始时间用于计算通关时间
 
-// ==================== 排行榜系统 ====================
-const LEADERBOARD_KEY = 'castle_defense_leaderboard';
-
-function getLeaderboard() {
-    try {
-        const data = localStorage.getItem(LEADERBOARD_KEY);
-        return data ? JSON.parse(data) : [];
-    } catch (e) {
-        console.error('Failed to load leaderboard:', e);
-        return [];
-    }
-}
-
-function saveToLeaderboard(entry) {
-    try {
-        const leaderboard = getLeaderboard();
-        leaderboard.push(entry);
-        // 按分数降序排序，保留前 10 名
-        leaderboard.sort((a, b) => b.score - a.score);
-        leaderboard.splice(10);
-        localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(leaderboard));
-        return true;
-    } catch (e) {
-        console.error('Failed to save to leaderboard:', e);
-        return false;
-    }
-}
-
-function calculateLevelScore(level, remainingLives, killScore, isVictory) {
-    // 基础分 = 剩余 HP × 20
-    const bonusScore = Math.max(0, remainingLives * 20);
-    // 总分 = 杀敌得分 + 关卡奖励分
-    return killScore + bonusScore;
-}
-
 const WEAPON_DISPLAY_NAMES = {
     1: getWeaponConfig(1).name,
     2: getWeaponConfig(2).name,
@@ -1205,7 +1170,7 @@ function endGame(victory) {
         killScore: killScore,
         bonusScore: lives * 20,
         isVictory: victory,
-        clearTime: 通关时间，
+        clearTime: clearTime,
         timestamp: new Date().toISOString()
     };
     
