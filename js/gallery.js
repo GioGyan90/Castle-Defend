@@ -254,3 +254,45 @@ function closeModelGallery() {
     clearGalleryPreviews();
 }
 
+// ==================== 排行榜 UI 功能 ====================
+function showLeaderboard() {
+    const panel = document.getElementById('leaderboardPanel');
+    const tbody = document.getElementById('leaderboardBody');
+    const leaderboard = getLeaderboard();
+    
+    tbody.innerHTML = '';
+    
+    if (leaderboard.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;">暂无记录，开始游戏创造你的第一个成绩吧！</td></tr>';
+    } else {
+        leaderboard.forEach((entry, index) => {
+            const row = document.createElement('tr');
+            const date = new Date(entry.timestamp);
+            const timeStr = `${Math.floor(date.getMonth() + 1)}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+            
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>Mission ${entry.level}</td>
+                <td>${entry.playerName}</td>
+                <td><strong>${entry.score}</strong></td>
+                <td>${entry.remainingLives} HP</td>
+                <td>${timeStr}</td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+    
+    panel.style.display = 'flex';
+}
+
+function closeLeaderboard() {
+    document.getElementById('leaderboardPanel').style.display = 'none';
+}
+
+function clearLeaderboard() {
+    if (confirm('确定要清空所有排行榜记录吗？此操作不可恢复。')) {
+        localStorage.removeItem(LEADERBOARD_KEY);
+        showLeaderboard();
+    }
+}
+

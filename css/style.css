@@ -522,6 +522,62 @@ body.game-dimmed #gameCanvas {
     text-align: center;
 }
 
+/* 排行榜样式 */
+.leaderboard-panel {
+    max-width: 700px;
+}
+
+.leaderboard-content {
+    max-height: 60vh;
+    overflow: auto;
+    background: #ffffff;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+.leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+    padding: 10px 8px;
+    text-align: left;
+    border-bottom: 1px solid #d7dee8;
+}
+
+.leaderboard-table th {
+    background: #f1c40f;
+    color: #16213e;
+    font-weight: 900;
+    font-size: 13px;
+    position: sticky;
+    top: 0;
+}
+
+.leaderboard-table tr:hover {
+    background: #f8fafc;
+}
+
+.leaderboard-table td:nth-child(4) {
+    color: #e74c3c;
+    font-weight: 900;
+}
+
+.leaderboard-footer {
+    margin-top: 14px;
+    text-align: center;
+}
+
+.leaderboard-footer .weapon-btn {
+    background: #e74c3c;
+    padding: 10px 20px;
+    width: auto;
+    display: inline-block;
+}
+
 /* 响应式调整 */
 @media (max-width: 400px) {
     .stat-item { font-size: 14px; }
@@ -535,5 +591,12 @@ body.game-dimmed #gameCanvas {
         grid-template-columns: repeat(5, 112px);
         overflow-x: auto;
         padding-bottom: 6px;
+    }
+    .leaderboard-table {
+        font-size: 12px;
+    }
+    .leaderboard-table th,
+    .leaderboard-table td {
+        padding: 6px 4px;
     }
 }

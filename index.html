@@ -26,6 +26,7 @@
             <button class="menu-btn debug-entry" onclick="showLevelSelect()">Debug 模式</button>
             <button class="menu-btn enemy-entry" onclick="showModelGallery('enemies')">敌方单位展示馆</button>
             <button class="menu-btn tower-entry" onclick="showModelGallery('towers')">防御塔展示馆</button>
+            <button class="menu-btn leaderboard-entry" onclick="showLeaderboard()">🏆 排行榜</button>
         </div>
 
         <div id="levelSelect" class="level-select" style="display:none;">
@@ -51,6 +52,37 @@
             <button class="gallery-close" onclick="closeModelGallery()">返回</button>
         </div>
         <div id="galleryGrid" class="model-grid"></div>
+    </div>
+</div>
+
+<div id="leaderboardPanel" class="gallery-overlay" style="display:none;">
+    <div class="gallery-panel leaderboard-panel">
+        <div class="gallery-header">
+            <div>
+                <h2>🏆 玩家得分排行榜</h2>
+                <p id="leaderboardDesc">历史最高分记录 (前 10 名)</p>
+            </div>
+            <button class="gallery-close" onclick="closeLeaderboard()">返回</button>
+        </div>
+        <div id="leaderboardContent" class="leaderboard-content">
+            <table class="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th>排名</th>
+                        <th>关卡</th>
+                        <th>玩家</th>
+                        <th>得分</th>
+                        <th>剩余 HP</th>
+                        <th>时间</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboardBody">
+                </tbody>
+            </table>
+        </div>
+        <div class="leaderboard-footer">
+            <button class="weapon-btn" onclick="clearLeaderboard()">清空排行榜</button>
+        </div>
     </div>
 </div>
 

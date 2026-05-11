@@ -36,6 +36,43 @@ let pathPoints = [];
 let alternateEnemyPathPoints = [];
 const weaponDamageStats = [];
 let weaponSerial = 0;
+let levelStartTime = 0; // 关卡开始时间用于计算通关时间
+
+// ==================== 排行榜系统 ====================
+const LEADERBOARD_KEY = 'castle_defense_leaderboard';
+
+function getLeaderboard() {
+    try {
+        const data = localStorage.getItem(LEADERBOARD_KEY);
+        return data ? JSON.parse(data) : [];
+    } catch (e) {
+        console.error('Failed to load leaderboard:', e);
+        return [];
+    }
+}
+
+function saveToLeaderboard(entry) {
+    try {
+        const leaderboard = getLeaderboard();
+        leaderboard.push(entry);
+        // 按分数降序排序，保留前 10 名
+        leaderboard.sort((a, b) => b.score - a.score);
+        leaderboard.splice(10);
+        localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(leaderboard));
+        return true;
+    } catch (e) {
+        console.error('Failed to save to leaderboard:', e);
+        return false;
+    }
+}
+
+function calculateLevelScore(level, remainingLives, killScore, isVictory) {
+    // 基础分 = 剩余 HP × 20
+    const bonusScore = Math.max(0, remainingLives * 20);
+    // 总分 = 杀敌得分 + 关卡奖励分
+    return killScore + bonusScore;
+}
+
 const WEAPON_DISPLAY_NAMES = {
     1: getWeaponConfig(1).name,
     2: getWeaponConfig(2).name,
@@ -246,6 +283,7 @@ function startGame(debug = false) {
     gameOver = false;
     bossSpawned = false;
     firstBossSpawned = false;
+    levelStartTime = Date.now(); // 记录关卡开始时间
     updateUI();
     gameStarted = true;
     lastTime = 0;
@@ -1154,6 +1192,27 @@ function endGame(victory) {
     const endBtn = document.getElementById('endBtn');
     const endScreen = document.getElementById('endScreen');
     
+    // 计算关卡得分并保存到排行榜
+    const通关时间 = Math.floor((Date.now() - levelStartTime) / 1000);
+    const killScore = score - (isDebugMode ? 1000 : (currentLevel === 1 ? 3 : (currentLevel === 2 ? 15 : 30)));
+    const levelScore = calculateLevelScore(currentLevel, lives, killScore, victory);
+    
+    const leaderboardEntry = {
+        playerName: 'Player',
+        level: currentLevel,
+        score: levelScore,
+        remainingLives: lives,
+        killScore: killScore,
+        bonusScore: lives * 20,
+        isVictory: victory,
+        clearTime: 通关时间，
+        timestamp: new Date().toISOString()
+    };
+    
+    if (victory) {
+        saveToLeaderboard(leaderboardEntry);
+    }
+    
     if (victory) {
         if (currentLevel === 1) {
             msgEl.innerText = "🎉 MISSION 1 COMPLETE!";
@@ -1167,6 +1226,11 @@ function endGame(victory) {
         }
         playTone(800, 'sine', 0.2, 0.1);
         setTimeout(() => playTone(1000, 'sine', 0.3, 0.1), 200);
+        
+        // 显示本关得分
+        setTimeout(() => {
+            alert(`Mission ${currentLevel} Complete!\n\n杀敌得分：${killScore}\n剩余 HP 奖励：${lives * 20}\n本关总分：${levelScore}\n通关时间：${通关时间}秒`);
+        }, 500);
     } else {
         msgEl.innerText = "💀 GAME OVER";
         endBtn.innerText = "RETRY";
