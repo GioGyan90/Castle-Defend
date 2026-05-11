@@ -1,5 +1,5 @@
 // Elite Drone Model Export - Three.js Code
-// Generated from js/enemies.js
+// Generated on 2026/5/11
 
 function createEliteDroneModel(THREE) {
   const group = new THREE.Group();
@@ -35,87 +35,173 @@ function createEliteDroneModel(THREE) {
   // Main body (flat hexagon cylinder)
   const bodyGeo = new THREE.CylinderGeometry(0.5, 0.58, 0.24, 6);
   const body = new THREE.Mesh(bodyGeo, bodyMat);
-  body.rotation.x = Math.PI / 2;
-  body.position.y = 1.2;
-  group.add(body);
+  if (body) {
+    body.rotation.x = Math.PI / 2;
+    body.position.set(0, 1.2, 0);
+    group.add(body);
+  }
 
-  // Top armor plate
+  // Top armor plate (box)
   const topArmor = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.1, 0.48), armorMat);
-  topArmor.position.y = 1.32;
-  group.add(topArmor);
+  if (topArmor) {
+    topArmor.position.set(0, 1.32, 0);
+    group.add(topArmor);
+  }
 
-  // Front armor plate
+  // Front armor plate (box)
   const frontArmor = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.12, 0.18), armorMat);
-  frontArmor.position.set(0, 1.22, 0.42);
-  group.add(frontArmor);
+  if (frontArmor) {
+    frontArmor.position.set(0, 1.22, 0.42);
+    group.add(frontArmor);
+  }
 
-  // Central glowing core
+  // Central glowing core (sphere)
   const core = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), coreMat);
-  core.position.y = 1.38;
-  group.add(core);
+  if (core) {
+    core.position.set(0, 1.38, 0);
+    group.add(core);
+  }
 
-  // Side lights
-  const sideLights = [];
-  [-1, 1].forEach(side => {
-    const light = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.07, 0.28), coreMat);
-    light.position.set(side * 0.42, 1.25, 0.12);
-    group.add(light);
-    sideLights.push(light);
-  });
+  // Side light left (box)
+  const sideLightLeft = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.07, 0.28), coreMat);
+  if (sideLightLeft) {
+    sideLightLeft.position.set(-0.42, 1.25, 0.12);
+    group.add(sideLightLeft);
+  }
 
-  // Four rotor arms and propellers
-  const armPositions = [
-    { x: 0.38, z: 0.38, rot: Math.PI / 4 },
-    { x: -0.38, z: 0.38, rot: -Math.PI / 4 },
-    { x: 0.38, z: -0.38, rot: -Math.PI / 4 },
-    { x: -0.38, z: -0.38, rot: Math.PI / 4 }
-  ];
+  // Side light right (box)
+  const sideLightRight = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.07, 0.28), coreMat);
+  if (sideLightRight) {
+    sideLightRight.position.set(0.42, 1.25, 0.12);
+    group.add(sideLightRight);
+  }
 
-  const propellers = [];
+  // Rotor arm 1 (box)
+  const arm1 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.36), bodyMat);
+  if (arm1) {
+    arm1.position.set(0.38, 1.2, 0.38);
+    arm1.rotation.set(0, Math.PI / 4, 0);
+    group.add(arm1);
+  }
 
-  armPositions.forEach((pos) => {
-    // Rotor arm
-    const arm = new THREE.Mesh(
-      new THREE.BoxGeometry(0.14, 0.08, 0.36),
-      bodyMat
-    );
-    arm.position.set(pos.x, 1.2, pos.z);
-    arm.rotation.y = pos.rot;
-    group.add(arm);
+  // Propeller 1 hub (cylinder)
+  const prop1Hub = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.04, 10), armorMat);
+  if (prop1Hub) {
+    prop1Hub.position.set(0.589, 1.41, 0.589);
+    prop1Hub.rotation.set(0, 0, 0);
+    group.add(prop1Hub);
+  }
 
-    // Propeller assembly
-    const propellerGroup = new THREE.Group();
-    propellerGroup.position.set(pos.x * 1.55, 1.42, pos.z * 1.55);
+  // Propeller 1 blade1 (box)
+  const prop1Blade1 = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.01, 0.52), propellerMat);
+  if (prop1Blade1) {
+    prop1Blade1.position.set(0.589, 1.4, 0.589);
+    group.add(prop1Blade1);
+  }
 
-    const hub = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.1, 0.1, 0.04, 10),
-      armorMat
-    );
-    hub.position.y = -0.01;
+  // Propeller 1 blade2 (box)
+  const prop1Blade2 = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.01, 0.035), propellerMat);
+  if (prop1Blade2) {
+    prop1Blade2.position.set(0.589, 1.4, 0.589);
+    group.add(prop1Blade2);
+  }
 
-    const blade1 = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.01, 0.52), propellerMat);
-    const blade2 = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.01, 0.035), propellerMat);
+  // Rotor arm 2 (box)
+  const arm2 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.36), bodyMat);
+  if (arm2) {
+    arm2.position.set(-0.38, 1.2, 0.38);
+    arm2.rotation.set(0, -Math.PI / 4, 0);
+    group.add(arm2);
+  }
 
-    propellerGroup.add(hub, blade1, blade2);
-    group.add(propellerGroup);
-    propellers.push(propellerGroup);
-  });
+  // Propeller 2 hub (cylinder)
+  const prop2Hub = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.04, 10), armorMat);
+  if (prop2Hub) {
+    prop2Hub.position.set(-0.589, 1.41, 0.589);
+    prop2Hub.rotation.set(0, 0, 0);
+    group.add(prop2Hub);
+  }
 
-  // Bottom sensor/camera
-  const sensor = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.09, 0.06, 0.12, 8),
-    sensorMat
-  );
-  sensor.position.y = 1.04;
-  group.add(sensor);
+  // Propeller 2 blade1 (box)
+  const prop2Blade1 = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.01, 0.52), propellerMat);
+  if (prop2Blade1) {
+    prop2Blade1.position.set(-0.589, 1.4, 0.589);
+    group.add(prop2Blade1);
+  }
 
-  // Store references for animation
-  group.userData = {
-    propellers: propellers,
-    core: core,
-    sideLights: sideLights,
-    spinSpeed: 0.3
-  };
+  // Propeller 2 blade2 (box)
+  const prop2Blade2 = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.01, 0.035), propellerMat);
+  if (prop2Blade2) {
+    prop2Blade2.position.set(-0.589, 1.4, 0.589);
+    group.add(prop2Blade2);
+  }
+
+  // Rotor arm 3 (box)
+  const arm3 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.36), bodyMat);
+  if (arm3) {
+    arm3.position.set(0.38, 1.2, -0.38);
+    arm3.rotation.set(0, -Math.PI / 4, 0);
+    group.add(arm3);
+  }
+
+  // Propeller 3 hub (cylinder)
+  const prop3Hub = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.04, 10), armorMat);
+  if (prop3Hub) {
+    prop3Hub.position.set(0.589, 1.41, -0.589);
+    prop3Hub.rotation.set(0, 0, 0);
+    group.add(prop3Hub);
+  }
+
+  // Propeller 3 blade1 (box)
+  const prop3Blade1 = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.01, 0.52), propellerMat);
+  if (prop3Blade1) {
+    prop3Blade1.position.set(0.589, 1.4, -0.589);
+    group.add(prop3Blade1);
+  }
+
+  // Propeller 3 blade2 (box)
+  const prop3Blade2 = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.01, 0.035), propellerMat);
+  if (prop3Blade2) {
+    prop3Blade2.position.set(0.589, 1.4, -0.589);
+    group.add(prop3Blade2);
+  }
+
+  // Rotor arm 4 (box)
+  const arm4 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.36), bodyMat);
+  if (arm4) {
+    arm4.position.set(-0.38, 1.2, -0.38);
+    arm4.rotation.set(0, Math.PI / 4, 0);
+    group.add(arm4);
+  }
+
+  // Propeller 4 hub (cylinder)
+  const prop4Hub = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.04, 10), armorMat);
+  if (prop4Hub) {
+    prop4Hub.position.set(-0.589, 1.41, -0.589);
+    prop4Hub.rotation.set(0, 0, 0);
+    group.add(prop4Hub);
+  }
+
+  // Propeller 4 blade1 (box)
+  const prop4Blade1 = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.01, 0.52), propellerMat);
+  if (prop4Blade1) {
+    prop4Blade1.position.set(-0.589, 1.4, -0.589);
+    group.add(prop4Blade1);
+  }
+
+  // Propeller 4 blade2 (box)
+  const prop4Blade2 = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.01, 0.035), propellerMat);
+  if (prop4Blade2) {
+    prop4Blade2.position.set(-0.589, 1.4, -0.589);
+    group.add(prop4Blade2);
+  }
+
+  // Bottom sensor/camera (cylinder)
+  const sensor = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.06, 0.12, 8), sensorMat);
+  if (sensor) {
+    sensor.position.set(0, 1.04, 0);
+    group.add(sensor);
+  }
 
   return group;
 }
