@@ -8,7 +8,8 @@ var ENEMY_CONFIG = {
         eliteDrone: '精英无人机',
         drone: '无人机',
         armored: '装甲单位',
-        hoverArmor: '悬浮装甲'
+        hoverArmor: '悬浮装甲',
+        wheelbarrow: '独轮炮车'
     },
     levels: {
         1: [
@@ -31,11 +32,11 @@ var ENEMY_CONFIG = {
         ],
         2: [
             {
-                modelType: 'robot',
+                modelType: 'wheelbarrow',
                 probability: 0.65,
-                health: 6,
-                speedMin: 0.018,
-                speedMax: 0.03,
+                health: 9,
+                speedMin: 0.016,
+                speedMax: 0.028,
                 isDrone: false
             },
             {

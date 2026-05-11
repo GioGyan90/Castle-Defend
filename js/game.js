@@ -768,6 +768,8 @@ function createEnemyFromConfig(enemyConfig) {
         enemyMesh = createArmoredUnitEnemy();
     } else if (enemyConfig.modelType === 'hoverArmor') {
         enemyMesh = createHoverArmorEnemy();
+    } else if (enemyConfig.modelType === 'wheelbarrow') {
+        enemyMesh = createWheelbarrowModel();
     } else {
         enemyMesh = createRobotEnemy(false);
     }
