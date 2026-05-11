@@ -1158,7 +1158,7 @@ function endGame(victory) {
     const endScreen = document.getElementById('endScreen');
     
     // 计算关卡得分并保存到排行榜
-    const通关时间 = Math.floor((Date.now() - levelStartTime) / 1000);
+    const clearTime = Math.floor((Date.now() - levelStartTime) / 1000);
     const killScore = score - (isDebugMode ? 1000 : (currentLevel === 1 ? 3 : (currentLevel === 2 ? 15 : 30)));
     const levelScore = calculateLevelScore(currentLevel, lives, killScore, victory);
     
@@ -1170,7 +1170,7 @@ function endGame(victory) {
         killScore: killScore,
         bonusScore: lives * 20,
         isVictory: victory,
-        clearTime: 通关时间,
+        clearTime: clearTime,
         timestamp: new Date().toISOString()
     };
     
@@ -1194,7 +1194,7 @@ function endGame(victory) {
         
         // 显示本关得分
         setTimeout(() => {
-            alert(`Mission ${currentLevel} Complete!\n\n杀敌得分：${killScore}\n剩余 HP 奖励：${lives * 20}\n本关总分：${levelScore}\n通关时间：${通关时间}秒`);
+            alert(`Mission ${currentLevel} Complete!\n\n杀敌得分：${killScore}\n剩余 HP 奖励：${lives * 20}\n本关总分：${levelScore}\n通关时间：${clearTime}秒`);
         }, 500);
     } else {
         msgEl.innerText = "💀 GAME OVER";
