@@ -1170,7 +1170,7 @@ function endGame(victory) {
         killScore: killScore,
         bonusScore: lives * 20,
         isVictory: victory,
-        clearTime: clearTime,
+        clearTime: 通关时间，
         timestamp: new Date().toISOString()
     };
     
