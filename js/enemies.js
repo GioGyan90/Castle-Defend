@@ -1200,13 +1200,13 @@ function createWheelbarrowModel() {
     // 单轮（大轮子）
     const wheelGeo = new THREE.CylinderGeometry(0.65, 0.65, 0.25, 16);
     const wheel = new THREE.Mesh(wheelGeo, matDark);
-    wheel.rotation.x = Math.PI / 2;
+    wheel.rotation.z = Math.PI / 2;
     wheel.position.set(0, 0.65, 0);
     group.add(wheel);
     
     // 轮毂盖 - 橙色
     const hubCap = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.28, 12), matOrange);
-    hubCap.rotation.x = Math.PI / 2;
+    hubCap.rotation.z = Math.PI / 2;
     hubCap.position.set(0, 0.65, 0);
     group.add(hubCap);
     
