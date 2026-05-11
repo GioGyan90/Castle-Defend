@@ -448,6 +448,17 @@ function animateEnemy(e, time) {
         mesh.userData.leftEye.position.y = 1.42 + bodyFloat;
         mesh.userData.rightEye.position.y = 1.42 + bodyFloat;
     }
+    // 独轮炮车动画
+    else if (mesh.userData.wheelbarrow) {
+        // 车轮滚动
+        if (mesh.userData.wheel) {
+            mesh.userData.wheel.rotation.z -= 0.15;
+        }
+        // 炮塔轻微摆动
+        if (mesh.userData.cannonGroup) {
+            mesh.userData.cannonGroup.rotation.y = Math.sin(time * 0.003) * 0.15;
+        }
+    }
 }
 
 // ==================== Boss 生成 ====================
