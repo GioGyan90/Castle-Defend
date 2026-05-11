@@ -1172,6 +1172,121 @@ function createSharkRobotBoss(parentGroup) {
     parentGroup.userData.shark = sharkGroup;
 }
 
+// 创建独轮炮车模型 (Wheelbarrow) - 橙蓝配色
+function createWheelbarrowModel() {
+    const group = new THREE.Group();
+    
+    // 材质定义 - 橙蓝配色
+    const matOrange = new THREE.MeshPhongMaterial({
+        color: 0xff793f,
+        emissive: 0x331100,
+        emissiveIntensity: 0.25,
+        flatShading: true
+    });
+    const matBlue = new THREE.MeshPhongMaterial({
+        color: 0x1f6fd1,
+        emissive: 0x052044,
+        emissiveIntensity: 0.28,
+        flatShading: true
+    });
+    const matDark = new THREE.MeshPhongMaterial({ color: 0x1b2530, flatShading: true });
+    const matGun = new THREE.MeshPhongMaterial({
+        color: 0x6f879c,
+        specular: 0xaad7ff,
+        shininess: 80
+    });
+    const matGlow = new THREE.MeshBasicMaterial({ color: 0xff793f });
+    
+    // 单轮（大轮子）
+    const wheelGeo = new THREE.CylinderGeometry(0.65, 0.65, 0.25, 16);
+    const wheel = new THREE.Mesh(wheelGeo, matDark);
+    wheel.rotation.x = Math.PI / 2;
+    wheel.position.set(0, 0.65, 0);
+    group.add(wheel);
+    
+    // 轮毂盖 - 橙色
+    const hubCap = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.28, 12), matOrange);
+    hubCap.rotation.x = Math.PI / 2;
+    hubCap.position.set(0, 0.65, 0);
+    group.add(hubCap);
+    
+    // 主车架 - 蓝色
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 1.8), matBlue);
+    frame.position.set(0, 1.1, 0.3);
+    group.add(frame);
+    
+    // 前部装甲板 - 橙色
+    const frontPlate = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.15, 0.2), matOrange);
+    frontPlate.position.set(0, 1.4, 1.2);
+    group.add(frontPlate);
+    
+    // 侧裙板 - 蓝色
+    const leftSkirt = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.5, 1.4), matBlue);
+    leftSkirt.position.set(-0.62, 0.85, 0.3);
+    const rightSkirt = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.5, 1.4), matBlue);
+    rightSkirt.position.set(0.62, 0.85, 0.3);
+    group.add(leftSkirt, rightSkirt);
+    
+    // 炮塔基座 - 橙色
+    const turretBase = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.55, 0.3, 8), matOrange);
+    turretBase.position.set(0, 1.55, 0.1);
+    group.add(turretBase);
+    
+    // 炮塔主体 - 蓝色
+    const turretBody = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 1.0), matBlue);
+    turretBody.position.set(0, 1.9, 0.1);
+    group.add(turretBody);
+    
+    // 炮管组
+    const cannonGroup = new THREE.Group();
+    const mainBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 1.2), matGun);
+    mainBarrel.rotation.x = Math.PI / 2;
+    mainBarrel.position.z = 0.6;
+    cannonGroup.add(mainBarrel);
+    
+    const muzzleBrake = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.12, 0.25), matGun);
+    muzzleBrake.rotation.x = Math.PI / 2;
+    muzzleBrake.position.z = 1.25;
+    cannonGroup.add(muzzleBrake);
+    
+    const barrelShroud = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.6), matOrange);
+    barrelShroud.rotation.x = Math.PI / 2;
+    barrelShroud.position.z = 0.3;
+    cannonGroup.add(barrelShroud);
+    
+    cannonGroup.position.set(0, 1.9, 0.1);
+    group.add(cannonGroup);
+    
+    // 传感器/发光件 - 橙色发光
+    const sensor = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.1, 0.08), matGlow);
+    sensor.position.set(0, 2.15, 0.62);
+    group.add(sensor);
+    
+    // 后部配重/装饰 - 蓝色
+    const rearWeight = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.4, 0.5), matBlue);
+    rearWeight.position.set(0, 1.7, -0.5);
+    group.add(rearWeight);
+    
+    // 支撑腿/稳定器 - 橙色
+    const stabilizerMat = new THREE.MeshPhongMaterial({ color: 0xff793f });
+    const leftStabilizer = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.5), stabilizerMat);
+    leftStabilizer.position.set(-0.5, 0.4, -0.4);
+    leftStabilizer.rotation.z = 0.3;
+    const rightStabilizer = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.5), stabilizerMat);
+    rightStabilizer.position.set(0.5, 0.4, -0.4);
+    rightStabilizer.rotation.z = -0.3;
+    group.add(leftStabilizer, rightStabilizer);
+    
+    // 存储引用用于动画
+    group.userData = {
+        wheelbarrow: true,
+        cannonGroup,
+        wheel
+    };
+    
+    return group;
+}
+
 // ==================== UI 更新 ====================
 // ==================== 模型展示馆 ====================
 

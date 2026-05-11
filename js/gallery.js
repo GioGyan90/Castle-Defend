@@ -122,13 +122,11 @@ function getGalleryModels(type) {
             createSteelGorillaBoss(group);
             return group;
         } },
-        { name: 'Final Boss Beta Helicopter', build: () => {
-            const group = new THREE.Group();
-            createHelicopterBoss(group);
-            return group;
-        } },
-        { name: 'Final Boss Beta Helicopter Edited', build: () => {
+        { name: 'Chopper', build: () => {
             return createImportedChopperModel(THREE);
+        } },
+        { name: 'Wheelbarrow', build: () => {
+            return createWheelbarrowModel();
         } }
     ];
 }
@@ -200,6 +198,9 @@ function renderGalleryPreviews() {
             }
             if (obj.userData && obj.userData.mainRotor) {
                 obj.userData.mainRotor.rotation.y += 0.45;
+            }
+            if (obj.userData && obj.userData.wheelbarrow && obj.userData.cannonGroup) {
+                obj.userData.cannonGroup.rotation.y = Math.sin(Date.now() * 0.002) * 0.3;
             }
         });
         item.renderer.render(item.scene, item.camera);
