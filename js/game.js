@@ -144,15 +144,13 @@ function buildMap() {
             const dx = Math.abs(nextRoadPt.x - pt.x);
             const dz = Math.abs(nextRoadPt.z - pt.z);
             
-            // 路面主体（亮灰色）
-            const roadWidth = dx > 0 ? 1.2 : 0.6;
-            const roadDepth = dz > 0 ? 1.2 : 0.6;
+            // 路面主体（亮灰色）- 宽度 3.0，可容纳 2+ 敌人并排
+            const roadWidth = 3.0;
+            const roadDepth = dx > 0 ? roadWidth : (dz > 0 ? roadWidth : 1.2);
             const roadBase = new THREE.Mesh(
-                new THREE.BoxGeometry(dx || roadWidth, 0.15, dz || roadDepth), 
+                new THREE.BoxGeometry(dx || roadDepth, 0.15, dz || roadDepth),
                 new THREE.MeshPhongMaterial({ color: 0x636e72, emissive: 0x2d3436, emissiveIntensity: 0.2 })
             );
-            roadBase.position.set((pt.x + nextRoadPt.x) / 2, 0.01, (pt.z + nextRoadPt.z) / 2);
-            scene.add(roadBase);
             
             // 内嵌黄色点缀灯光（分段式小方块，像 LED 灯珠）
             const dotSize = 0.15;
@@ -173,7 +171,7 @@ function buildMap() {
             }
             
             // 道路边缘蓝色霓虹灯带
-            const edgeOffset = 0.45;
+            const edgeOffset = 1.35;
             const edgeLight1 = new THREE.Mesh(
                 new THREE.BoxGeometry(dx || 0.06, 0.12, dz || 0.06),
                 new THREE.MeshBasicMaterial({ color: 0x00d2d3, transparent: true, opacity: 0.6 })
