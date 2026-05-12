@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 游戏主逻辑文件
  * Emoji Castle Defense - Compact Mobile
  */
@@ -48,16 +48,41 @@ const WEAPON_DISPLAY_NAMES = {
 const scene = new THREE.Scene(); 
 scene.background = new THREE.Color(0x130f40);
 
-const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
+function getViewportSize() {
+    const viewport = window.visualViewport;
+    return {
+        width: Math.round(viewport ? viewport.width : window.innerWidth),
+        height: Math.round(viewport ? viewport.height : window.innerHeight)
+    };
+}
+
+const initialViewport = getViewportSize();
+const camera = new THREE.PerspectiveCamera(50, initialViewport.width / initialViewport.height, 0.1, 2000);
 
 // 存储摄像机基础位置用于震动效果
 let baseCameraY = 24;
 let baseCameraZ = 18;
 
+function getCurrentMapExtent() {
+    const cfg = typeof LEVELS !== 'undefined' ? LEVELS[currentLevel] : null;
+    if (!cfg) return 18;
+
+    const allPoints = [
+        ...(cfg.points || []),
+        ...(cfg.altEnemyPoints || []),
+        ...(cfg.slots || []).map(slot => [slot.x, slot.z])
+    ];
+
+    return allPoints.reduce((extent, point) => {
+        return Math.max(extent, Math.abs(point[0]), Math.abs(point[1]));
+    }, 18);
+}
+
 function adjustCamera() {
-    const aspect = window.innerWidth / window.innerHeight;
-    // Mobile-first: closer camera for mobile, adjusted for PC
-    const camDist = aspect < 1 ? 24 : 28; 
+    const viewport = getViewportSize();
+    const aspect = viewport.width / viewport.height;
+    const mapExtent = getCurrentMapExtent();
+    const camDist = Math.max(aspect < 1 ? 30 : 26, mapExtent * (aspect < 1 ? 1.75 : 1.35));
     baseCameraY = camDist;
     baseCameraZ = camDist * 0.75;
     camera.position.set(0, baseCameraY, baseCameraZ);
@@ -67,7 +92,7 @@ adjustCamera();
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(initialViewport.width, initialViewport.height, false);
 document.body.appendChild(renderer.domElement);
 renderer.domElement.id = 'gameCanvas';
 
@@ -113,123 +138,16 @@ scene.add(castle);
 
 // ==================== 地图构建 ====================
 function buildMap() {
-    // 清理场景（保留 scene、light 和 castle）
-    while (scene.children.length > 0) {
-        const obj = scene.children[scene.children.length - 1];
-        if (obj !== light && obj !== castle) {
-            scene.remove(obj);
-        } else {
-            break;
-        }
-    }
-    
     slots.length = 0;
-    const cfg = LEVELS[currentLevel];
-    pathPoints = cfg.points.map(p => new THREE.Vector3(p[0], 0, p[1]));
-    alternateEnemyPathPoints = cfg.altEnemyPoints ? cfg.altEnemyPoints.map(p => new THREE.Vector3(p[0], 0, p[1])) : [];
-    
-    // 地面 (scaled for mobile-first design)
-    const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(60, 60), 
-        new THREE.MeshPhongMaterial({ color: 0x2d3436 })
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.1;
-    scene.add(ground);
-    
-    const drawRoadPath = (points) => {
-        points.forEach((pt, i) => {
-            if (i >= points.length - 1) return;
-            const nextRoadPt = points[i + 1];
-            const dx = Math.abs(nextRoadPt.x - pt.x);
-            const dz = Math.abs(nextRoadPt.z - pt.z);
-            
-            // 路面主体（亮灰色）- 宽度 3.0，可容纳 2+ 敌人并排
-            const roadWidth = 3.0;
-            const roadDepth = dx > 0 ? roadWidth : (dz > 0 ? roadWidth : 1.2);
-            const roadBase = new THREE.Mesh(
-                new THREE.BoxGeometry(dx || roadDepth, 0.15, dz || roadDepth),
-                new THREE.MeshPhongMaterial({ color: 0x636e72, emissive: 0x2d3436, emissiveIntensity: 0.2 })
-            );
-            
-            // 内嵌黄色点缀灯光（分段式小方块，像 LED 灯珠）
-            const dotSize = 0.15;
-            const segments = 5;
-            
-            for (let s = 0; s < segments; s++) {
-                const t = (s + 0.5) / segments;
-                const stripX = pt.x + (nextRoadPt.x - pt.x) * t;
-                const stripZ = pt.z + (nextRoadPt.z - pt.z) * t;
-                
-                const lightDot = new THREE.Mesh(
-                    new THREE.BoxGeometry(dx > 0 ? dotSize : 0.1, 0.16, 
-                                         dz > 0 ? dotSize : 0.1),
-                    new THREE.MeshBasicMaterial({ color: 0xf1c40f, transparent: true, opacity: 0.95 })
-                );
-                lightDot.position.set(stripX, 0.02, stripZ);
-                scene.add(lightDot);
-            }
-            
-            // 道路边缘蓝色霓虹灯带
-            const edgeOffset = 1.35;
-            const edgeLight1 = new THREE.Mesh(
-                new THREE.BoxGeometry(dx || 0.06, 0.12, dz || 0.06),
-                new THREE.MeshBasicMaterial({ color: 0x00d2d3, transparent: true, opacity: 0.6 })
-            );
-            edgeLight1.position.set((pt.x + nextRoadPt.x) / 2, 0.02, (pt.z + nextRoadPt.z) / 2 + (dz > 0 ? edgeOffset : 0));
-            scene.add(edgeLight1);
-            
-            const edgeLight2 = new THREE.Mesh(
-                new THREE.BoxGeometry(dx || 0.06, 0.12, dz || 0.06),
-                new THREE.MeshBasicMaterial({ color: 0x00d2d3, transparent: true, opacity: 0.6 })
-            );
-            edgeLight2.position.set((pt.x + nextRoadPt.x) / 2, 0.02, (pt.z + nextRoadPt.z) / 2 - (dz > 0 ? edgeOffset : 0));
-            scene.add(edgeLight2);
-        });
-    };
-
-    // 路径 - 赛博公路风格（亮灰路面 + 内嵌黄色点缀灯光）
-    drawRoadPath(pathPoints);
-    if (cfg.altRoadPoints) {
-        drawRoadPath(cfg.altRoadPoints.map(p => new THREE.Vector3(p[0], 0, p[1])));
-    }
-    
-    // 武器槽位 (scaled for mobile)
-    cfg.slots.forEach(pos => {
-        const group = new THREE.Group();
-        const slot = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.6, 0.6, 0.35, 16), 
-            new THREE.MeshPhongMaterial({ color: 0x485e64 })
-        );
-        const ring = new THREE.Mesh(
-            new THREE.TorusGeometry(0.75, 0.05, 8, 24), 
-            new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0 })
-        );
-        ring.rotation.x = Math.PI / 2;
-        group.position.set(pos.x, 0.18, pos.z);
-        group.add(slot, ring);
-        scene.add(group);
-        slot.userData = { occupied: false, ring: ring, group: group, currentWeapon: null };
-        slots.push(slot);
+    const mapState = buildLevelMap({
+        THREE,
+        scene,
+        castle,
+        currentLevel,
+        slots
     });
-    
-    // 第二关特殊装饰：湖泊 (scaled down)
-    if (currentLevel === 2) {
-        const lake = new THREE.Mesh(
-            new THREE.CircleGeometry(2.5, 24), 
-            new THREE.MeshPhongMaterial({ color: 0x0984e3, transparent: true, opacity: 0.4 })
-        );
-        lake.rotation.x = -Math.PI / 2;
-        lake.position.set(0, 0.02, 0);
-        scene.add(lake);
-    }
-    
-    // Endpoint base position and gate direction.
-    const castlePos = pathPoints[pathPoints.length - 1].clone();
-    const approachPos = pathPoints[pathPoints.length - 2];
-    const approachDir = approachPos.clone().sub(castlePos);
-    castle.position.copy(castlePos);
-    castle.rotation.y = Math.atan2(-approachDir.x, -approachDir.z);
+    pathPoints = mapState.pathPoints;
+    alternateEnemyPathPoints = mapState.alternateEnemyPathPoints;
     castleShakeTime = 0; // 重置震动状态
 }
 
@@ -244,6 +162,7 @@ function startGame(debug = false) {
     document.getElementById('status-bar').style.display = 'flex';
     document.getElementById('bottom-nav').style.display = 'flex';
     buildMap();
+    adjustCamera();
     score = isDebugMode ? 1000 : (currentLevel === 1 ? 3 : (currentLevel === 2 ? 15 : 30));
     lives = 5;
     spawnedCount = 0;
@@ -1273,12 +1192,19 @@ function endGame(victory) {
 }
 
 // ==================== 窗口大小调整 ====================
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+function resizeGameViewport() {
+    const viewport = getViewportSize();
+    camera.aspect = viewport.width / viewport.height;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(viewport.width, viewport.height, false);
     adjustCamera();
-});
+}
+
+window.addEventListener('resize', resizeGameViewport);
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', resizeGameViewport);
+}
+window.addEventListener('orientationchange', () => setTimeout(resizeGameViewport, 150));
 
 // ==================== 启动游戏循环 ====================
 requestAnimationFrame(gameLoop);
