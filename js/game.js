@@ -928,9 +928,9 @@ function gameLoop(time) {
             // Also update physics body velocity to match movement direction
             if (e.mesh.userData.physicsBody) {
                 const body = e.mesh.userData.physicsBody;
-                // Set velocity in the movement direction
-                body.velocity.x = dir.x * moveDistance * 60; // Scale for physics timestep
-                body.velocity.z = dir.z * moveDistance * 60;
+                // Only set Z velocity for forward movement, X velocity handled by collision
+                body.velocity.z = dir.z * moveDistance * 60; // Scale for physics timestep
+                // Do not override X velocity - let physics handle lateral collisions
             }
         }
         
