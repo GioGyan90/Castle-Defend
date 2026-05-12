@@ -223,60 +223,68 @@ function updateEnemyWaypoint(enemy) {
     return false;
 }
 
+
+// Flying units still follow the same road waypoints as ground units, but waypoint
+// checks intentionally ignore height so drones and helicopter bosses can advance.
+function applyFlyingPathAI(enemy) {
+    const mesh = enemy.mesh;
+    const pathPoints = enemy.pathPoints;
+    if (!mesh || !pathPoints || enemy.pathIdx >= pathPoints.length - 1) {
+        return;
+    }
+
+    const targetWaypoint = pathPoints[enemy.pathIdx + 1];
+    const flatTarget = targetWaypoint.clone();
+    flatTarget.y = 0;
+
+    const flatPosition = mesh.position.clone();
+    flatPosition.y = 0;
+
+    const toTarget = new THREE.Vector3().subVectors(flatTarget, flatPosition);
+    const flatDistance = toTarget.length();
+
+    if (flatDistance < ENEMY_AI_CONFIG.waypointReachDistance) {
+        enemy.pathIdx++;
+        return;
+    }
+
+    if (flatDistance <= 0.01) {
+        return;
+    }
+
+    toTarget.normalize();
+    const lookTarget = flatTarget.clone();
+    lookTarget.y = mesh.position.y;
+    mesh.lookAt(lookTarget);
+
+    const targetHeight = enemy.isFlyingBoss ? (enemy.flightBaseY || 2.5) : (enemy.isDrone ? 1.2 : 0.7);
+    mesh.position.y += (targetHeight - mesh.position.y) * 0.08;
+
+    if (mesh.userData.physicsBody) {
+        const body = mesh.userData.physicsBody;
+        const flySpeed = enemy.speed * 50;
+        body.velocity.x = toTarget.x * flySpeed;
+        body.velocity.z = toTarget.z * flySpeed;
+        body.velocity.y = 0;
+    } else {
+        mesh.position.add(toTarget.multiplyScalar(enemy.speed * 1.2));
+    }
+}
+
 // Main AI update function called each frame
 function updateEnemyAI(enemiesArray, deltaTime) {
     // Update each enemy's AI
     for (let enemy of enemiesArray) {
         if (!enemy.isDead && !enemy.isStalledAtZero) {
+            const isFlyingUnit = enemy.isDrone || enemy.isFlyingBoss || enemy.mesh.userData.hoverArmor;
+
+            if (isFlyingUnit) {
+                applyFlyingPathAI(enemy);
+                continue;
+            }
+
             applyWalkingAI(enemy, enemiesArray, deltaTime);
-            
-            // Check waypoint reach and handle base arrival
-            const pathPoints = enemy.pathPoints;
-            if (pathPoints && enemy.pathIdx < pathPoints.length - 1) {
-                const currentPos = enemy.mesh.position.clone();
-                const nextWaypoint = pathPoints[enemy.pathIdx + 1];
-                const distance = currentPos.distanceTo(nextWaypoint);
-                
-                if (distance < ENEMY_AI_CONFIG.waypointReachDistance) {
-                    enemy.pathIdx++;
-                    
-                    // Check if reached final destination (player base)
-                    if (enemy.pathIdx >= pathPoints.length - 1) {
-                        // Enemy reached the base - will be handled in game.js
-                        // Just mark it for removal on next game loop iteration
-                    }
-                }
-            }
-            
-            // Handle flying units (drones, hover armor) separately
-            if (enemy.isDrone || enemy.mesh.userData.hoverArmor) {
-                const mesh = enemy.mesh;
-                const targetWaypoint = pathPoints[enemy.pathIdx + 1];
-                if (targetWaypoint) {
-                    // Flying units move directly towards waypoint
-                    const dir = new THREE.Vector3().subVectors(targetWaypoint, mesh.position);
-                    const dist = dir.length();
-                    
-                    if (dist > 0.5) {
-                        dir.normalize();
-                        mesh.lookAt(targetWaypoint);
-                        
-                        const flySpeed = enemy.speed * 50;
-                        if (mesh.userData.physicsBody) {
-                            const body = mesh.userData.physicsBody;
-                            body.velocity.x = dir.x * flySpeed;
-                            body.velocity.z = dir.z * flySpeed;
-                            // Maintain hover height
-                            const targetHeight = enemy.isDrone ? 1.2 : 0.7;
-                            const heightDiff = targetHeight - mesh.position.y;
-                            mesh.position.y += heightDiff * 0.05;
-                            body.velocity.y = 0;
-                        } else {
-                            mesh.position.add(dir.multiplyScalar(enemy.speed));
-                        }
-                    }
-                }
-            }
+            updateEnemyWaypoint(enemy);
         }
     }
 }
@@ -298,6 +306,7 @@ if (typeof module !== 'undefined' && module.exports) {
         calculateSeekSteering,
         calculateAvoidanceSteering,
         calculatePathFollowingSteering,
+        applyFlyingPathAI,
         calculateFacingAngle
     };
 }

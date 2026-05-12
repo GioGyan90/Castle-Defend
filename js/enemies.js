@@ -724,6 +724,7 @@ function spawnGorillaBossEntity(maxHp, speed = 0.02, hpBarY = 4.2) {
     const boss = {
         mesh: gorillaBoss,
         pathIdx: 0,
+        pathPoints: pathPoints,
         health: maxHp,
         maxHealth: maxHp,
         isBoss: true,
@@ -750,6 +751,7 @@ function spawnHelicopterBossEntity(maxHp, speed = 0.02, hpBarY = 4.4) {
     const boss = {
         mesh: helicopterBoss,
         pathIdx: 0,
+        pathPoints: pathPoints,
         health: maxHp,
         maxHealth: maxHp,
         isBoss: true,
@@ -955,6 +957,7 @@ function spawnBoss() {
     const e = { 
         mesh: bossGroup, 
         pathIdx: 0, 
+        pathPoints: pathPoints,
         health: maxHp, 
         maxHealth: maxHp, 
         isBoss: true, 
