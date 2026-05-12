@@ -878,72 +878,85 @@ function gameLoop(time) {
         spawnFirstBoss();
     }
     
-    // 敌人移动与动画
-    for (let i = enemies.length - 1; i >= 0; i--) {
-        const e = enemies[i];
-        if (e.isStalledAtZero) {
-            continue;
-        }
-
-        const enemyPath = e.pathPoints || pathPoints;
-        const target = enemyPath[e.pathIdx + 1];
-        if (!target) continue;
+    // 敌人移动与动画 - 使用新的 AI 系统
+    if (typeof updateEnemyAI === 'function') {
+        // 使用新的 AI 系统处理行走、转向和位置微调
+        updateEnemyAI(enemies, delta);
         
-        const currentPos = e.mesh.position.clone();
-        if (e.isFlyingBoss) {
-            currentPos.y = 0;
-        }
-        const dir = new THREE.Vector3().subVectors(target, currentPos);
-        const dist = dir.length();
-        
-        if (dist < 0.5) {
-            e.pathIdx++;
+        // 检查是否有敌人到达终点（需要在这里处理，因为 AI 模块不直接访问游戏状态）
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const e = enemies[i];
+            if (e.isDead || e.isStalledAtZero) continue;
+            
+            const enemyPath = e.pathPoints || pathPoints;
+            // 如果已到达最后一个路点，说明到达基地
             if (e.pathIdx >= enemyPath.length - 1) {
-                // Remove from physics world first
                 if (typeof removeEnemyFromBodyList === 'function') {
                     removeEnemyFromBodyList(e.mesh);
                 }
                 scene.remove(e.mesh);
                 enemies.splice(i, 1);
                 lives -= e.isBoss ? 5 : 1;
-                // 城堡被攻击：震动 + 音效
                 shakeCastle(300);
                 flashBaseAlert();
                 playTone(150, 'sawtooth', 0.3, 0.08);
                 updateUI();
-                if (lives <= 0) {
-                    endGame(false);
-                }
-                continue;
-            }
-        } else {
-            dir.normalize();
-            
-            // Update visual mesh rotation to face the target direction
-            e.mesh.lookAt(target);
-            
-            // Apply movement force to physics body (if exists) or directly to mesh
-            if (e.mesh.userData.physicsBody) {
-                const body = e.mesh.userData.physicsBody;
-                // Move towards target using physics velocity
-                const forwardSpeed = e.speed * 60; // Scale for physics timestep
-                
-                // Set velocity directly towards target on Z axis only (path following)
-                // X axis is controlled by physics collisions between enemies
-                body.velocity.z = dir.z * forwardSpeed;
-                
-                // Preserve current X velocity from physics (collision avoidance)
-                // Don't override it with path-following velocity
-                
-                // Position sync is done in updateEnemyPhysics after physics step
-            } else {
-                // No physics - direct movement
-                e.mesh.position.add(dir.multiplyScalar(e.speed));
+                if (lives <= 0) endGame(false);
             }
         }
-        
-        // 播放动画
-        animateEnemy(e, time);
+    } else {
+        // 后备：旧式直接移动逻辑
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const e = enemies[i];
+            if (e.isStalledAtZero) continue;
+            
+            const enemyPath = e.pathPoints || pathPoints;
+            const target = enemyPath[e.pathIdx + 1];
+            if (!target) continue;
+            
+            const currentPos = e.mesh.position.clone();
+            if (e.isFlyingBoss) currentPos.y = 0;
+            
+            const dir = new THREE.Vector3().subVectors(target, currentPos);
+            const dist = dir.length();
+            
+            if (dist < 0.5) {
+                e.pathIdx++;
+                if (e.pathIdx >= enemyPath.length - 1) {
+                    if (typeof removeEnemyFromBodyList === 'function') {
+                        removeEnemyFromBodyList(e.mesh);
+                    }
+                    scene.remove(e.mesh);
+                    enemies.splice(i, 1);
+                    lives -= e.isBoss ? 5 : 1;
+                    shakeCastle(300);
+                    flashBaseAlert();
+                    playTone(150, 'sawtooth', 0.3, 0.08);
+                    updateUI();
+                    if (lives <= 0) endGame(false);
+                    continue;
+                }
+            } else {
+                dir.normalize();
+                e.mesh.lookAt(target);
+                
+                if (e.mesh.userData.physicsBody) {
+                    const body = e.mesh.userData.physicsBody;
+                    const forwardSpeed = e.speed * 60;
+                    body.velocity.z = dir.z * forwardSpeed;
+                } else {
+                    e.mesh.position.add(dir.multiplyScalar(e.speed));
+                }
+            }
+        }
+    }
+    
+    // 播放动画
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        if (!e.isDead && !e.isStalledAtZero) {
+            animateEnemy(e, time);
+        }
     }
     
     // Update enemy physics simulation (collision avoidance between enemies)
