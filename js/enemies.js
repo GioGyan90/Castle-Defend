@@ -175,6 +175,7 @@ function createRobotEnemy(isHard) {
         rightEye: eye,
         hasPhysics: false
     };
+    group.scale.setScalar(0.35); // Smaller enemies for mobile-first design
     
     return group;
 }
@@ -293,6 +294,7 @@ function createDroneEnemy(isElite = true) {
         spinSpeed: 0.3 + Math.random() * 0.1,
         hasPhysics: false
     };
+    group.scale.setScalar(0.35); // Smaller enemies for mobile-first design
     
     return group;
 }
@@ -375,7 +377,8 @@ function createHoverArmorEnemy() {
         hoverPhase: Math.random() * Math.PI * 2,
         hasPhysics: false
     };
-
+    group.scale.setScalar(0.35); // Smaller enemies for mobile-first design
+    
     return group;
 }
 
@@ -463,7 +466,7 @@ function createArmoredUnitEnemy() {
     tower.position.y = 1.2;
     group.add(chassis, tower);
     group.userData = { armoredUnit: true, tower, hasPhysics: false };
-    group.scale.setScalar(0.55);
+    group.scale.setScalar(0.35); // Smaller enemies for mobile-first design
 
     return group;
 }
@@ -1396,6 +1399,7 @@ function createWheelbarrowModel() {
         wheel,
         hasPhysics: false
     };
+    group.scale.setScalar(0.35); // Smaller enemies for mobile-first design
     
     return group;
 }

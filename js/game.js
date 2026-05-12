@@ -51,16 +51,17 @@ scene.background = new THREE.Color(0x130f40);
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
 
 // 存储摄像机基础位置用于震动效果
-let baseCameraY = 35;
-let baseCameraZ = 28;
+let baseCameraY = 24;
+let baseCameraZ = 18;
 
 function adjustCamera() {
     const aspect = window.innerWidth / window.innerHeight;
-    const camDist = aspect < 1 ? 45 : 35; 
+    // Mobile-first: closer camera for mobile, adjusted for PC
+    const camDist = aspect < 1 ? 24 : 28; 
     baseCameraY = camDist;
-    baseCameraZ = camDist * 0.8;
+    baseCameraZ = camDist * 0.75;
     camera.position.set(0, baseCameraY, baseCameraZ);
-    camera.lookAt(0, -5, 0);
+    camera.lookAt(0, 0, 0);
 }
 adjustCamera();
 
@@ -127,9 +128,9 @@ function buildMap() {
     pathPoints = cfg.points.map(p => new THREE.Vector3(p[0], 0, p[1]));
     alternateEnemyPathPoints = cfg.altEnemyPoints ? cfg.altEnemyPoints.map(p => new THREE.Vector3(p[0], 0, p[1])) : [];
     
-    // 地面
+    // 地面 (scaled for mobile-first design)
     const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(250 * 1.5, 250 * 1.5), 
+        new THREE.PlaneGeometry(60, 60), 
         new THREE.MeshPhongMaterial({ color: 0x2d3436 })
     );
     ground.rotation.x = -Math.PI / 2;
@@ -144,16 +145,18 @@ function buildMap() {
             const dz = Math.abs(nextRoadPt.z - pt.z);
             
             // 路面主体（亮灰色）
+            const roadWidth = dx > 0 ? 1.2 : 0.6;
+            const roadDepth = dz > 0 ? 1.2 : 0.6;
             const roadBase = new THREE.Mesh(
-                new THREE.BoxGeometry(dx || 2, 0.15, dz || 2), 
+                new THREE.BoxGeometry(dx || roadWidth, 0.15, dz || roadDepth), 
                 new THREE.MeshPhongMaterial({ color: 0x636e72, emissive: 0x2d3436, emissiveIntensity: 0.2 })
             );
             roadBase.position.set((pt.x + nextRoadPt.x) / 2, 0.01, (pt.z + nextRoadPt.z) / 2);
             scene.add(roadBase);
             
             // 内嵌黄色点缀灯光（分段式小方块，像 LED 灯珠）
-            const dotSize = 0.25;
-            const segments = 8; // 更多段，更短的灯点
+            const dotSize = 0.15;
+            const segments = 5;
             
             for (let s = 0; s < segments; s++) {
                 const t = (s + 0.5) / segments;
@@ -161,8 +164,8 @@ function buildMap() {
                 const stripZ = pt.z + (nextRoadPt.z - pt.z) * t;
                 
                 const lightDot = new THREE.Mesh(
-                    new THREE.BoxGeometry(dx > 0 ? dotSize : 0.15, 0.16, 
-                                         dz > 0 ? dotSize : 0.15),
+                    new THREE.BoxGeometry(dx > 0 ? dotSize : 0.1, 0.16, 
+                                         dz > 0 ? dotSize : 0.1),
                     new THREE.MeshBasicMaterial({ color: 0xf1c40f, transparent: true, opacity: 0.95 })
                 );
                 lightDot.position.set(stripX, 0.02, stripZ);
@@ -170,18 +173,19 @@ function buildMap() {
             }
             
             // 道路边缘蓝色霓虹灯带
+            const edgeOffset = 0.45;
             const edgeLight1 = new THREE.Mesh(
-                new THREE.BoxGeometry(dx || 0.1, 0.12, dz || 0.1),
+                new THREE.BoxGeometry(dx || 0.06, 0.12, dz || 0.06),
                 new THREE.MeshBasicMaterial({ color: 0x00d2d3, transparent: true, opacity: 0.6 })
             );
-            edgeLight1.position.set((pt.x + nextRoadPt.x) / 2, 0.02, (pt.z + nextRoadPt.z) / 2 + (dz > 0 ? 0.8 : 0));
+            edgeLight1.position.set((pt.x + nextRoadPt.x) / 2, 0.02, (pt.z + nextRoadPt.z) / 2 + (dz > 0 ? edgeOffset : 0));
             scene.add(edgeLight1);
             
             const edgeLight2 = new THREE.Mesh(
-                new THREE.BoxGeometry(dx || 0.1, 0.12, dz || 0.1),
+                new THREE.BoxGeometry(dx || 0.06, 0.12, dz || 0.06),
                 new THREE.MeshBasicMaterial({ color: 0x00d2d3, transparent: true, opacity: 0.6 })
             );
-            edgeLight2.position.set((pt.x + nextRoadPt.x) / 2, 0.02, (pt.z + nextRoadPt.z) / 2 - (dz > 0 ? 0.8 : 0));
+            edgeLight2.position.set((pt.x + nextRoadPt.x) / 2, 0.02, (pt.z + nextRoadPt.z) / 2 - (dz > 0 ? edgeOffset : 0));
             scene.add(edgeLight2);
         });
     };
@@ -192,29 +196,29 @@ function buildMap() {
         drawRoadPath(cfg.altRoadPoints.map(p => new THREE.Vector3(p[0], 0, p[1])));
     }
     
-    // 武器槽位
+    // 武器槽位 (scaled for mobile)
     cfg.slots.forEach(pos => {
         const group = new THREE.Group();
         const slot = new THREE.Mesh(
-            new THREE.CylinderGeometry(1, 1, 0.4, 16), 
+            new THREE.CylinderGeometry(0.6, 0.6, 0.35, 16), 
             new THREE.MeshPhongMaterial({ color: 0x485e64 })
         );
         const ring = new THREE.Mesh(
-            new THREE.TorusGeometry(1.2, 0.08, 8, 24), 
+            new THREE.TorusGeometry(0.75, 0.05, 8, 24), 
             new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0 })
         );
         ring.rotation.x = Math.PI / 2;
-        group.position.set(pos.x, 0.2, pos.z);
+        group.position.set(pos.x, 0.18, pos.z);
         group.add(slot, ring);
         scene.add(group);
         slot.userData = { occupied: false, ring: ring, group: group, currentWeapon: null };
         slots.push(slot);
     });
     
-    // 第二关特殊装饰：湖泊
+    // 第二关特殊装饰：湖泊 (scaled down)
     if (currentLevel === 2) {
         const lake = new THREE.Mesh(
-            new THREE.CircleGeometry(5, 24), 
+            new THREE.CircleGeometry(2.5, 24), 
             new THREE.MeshPhongMaterial({ color: 0x0984e3, transparent: true, opacity: 0.4 })
         );
         lake.rotation.x = -Math.PI / 2;
