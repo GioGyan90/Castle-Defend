@@ -134,51 +134,42 @@ function applyWalkingAI(enemy, allEnemies, deltaTime) {
         }
     }
     
-    // Get current velocity from physics body or estimate from movement
-    let currentVelocity = new THREE.Vector3(0, 0, 0);
-    if (mesh.userData.physicsBody) {
-        currentVelocity.copy(mesh.userData.physicsBody.velocity);
+    // Get the next waypoint target
+    const targetWaypoint = pathPoints[currentWaypointIdx + 1];
+    
+    // Calculate direction to target
+    const directionToTarget = new THREE.Vector3().subVectors(targetWaypoint, currentPos);
+    const distanceToTarget = directionToTarget.length();
+    
+    // Face the movement direction
+    if (distanceToTarget > 0.1) {
+        directionToTarget.normalize();
+        const targetAngle = Math.atan2(directionToTarget.x, directionToTarget.z);
+        
+        // Smooth rotation towards target direction
+        let currentRotationY = mesh.rotation.y;
+        let angleDiff = targetAngle - currentRotationY;
+        
+        // Normalize angle to [-PI, PI]
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        
+        // Smooth turn
+        const turnSpeed = 0.15;
+        mesh.rotation.y += angleDiff * turnSpeed;
     }
     
-    // Calculate steering forces
-    const seekForce = calculateSeekSteering(
-        currentPos,
-        currentVelocity,
-        pathPoints[currentWaypointIdx + 1],
-        enemy.speed * ENEMY_AI_CONFIG.maxSpeed
-    );
+    // Move forward along the facing direction
+    const moveSpeed = enemy.speed * 0.8; // Base movement speed
+    const forwardDir = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), mesh.rotation.y);
     
-    const avoidanceForce = calculateAvoidanceSteering(enemy, allEnemies, ENEMY_AI_CONFIG.avoidanceRadius);
-    
-    const followForce = calculatePathFollowingSteering(enemy, pathPoints, 3.0);
-    
-    // Combine steering forces
-    const totalSteering = new THREE.Vector3();
-    totalSteering.add(seekForce.multiplyScalar(1.0));
-    totalSteering.add(avoidanceForce.multiplyScalar(0.8));
-    totalSteering.add(followForce.multiplyScalar(0.5));
-    
-    // Limit total steering force
-    totalSteering.limitLength(ENEMY_AI_CONFIG.maxSteeringForce);
-    
-    // Apply steering to physics body or directly to position
+    // Apply movement to physics body or directly to position
     if (mesh.userData.physicsBody) {
         const body = mesh.userData.physicsBody;
         
-        // Apply steering as acceleration (only on X-Z plane)
-        body.velocity.x += totalSteering.x * 0.5;
-        body.velocity.z += totalSteering.z * 0.5;
-        
-        // Apply damping to prevent excessive speed
-        const horizontalVel = new THREE.Vector3(body.velocity.x, 0, body.velocity.z);
-        const speed = horizontalVel.length();
-        const maxHorizSpeed = enemy.speed * ENEMY_AI_CONFIG.maxSpeed * 40;
-        
-        if (speed > maxHorizSpeed) {
-            horizontalVel.normalize().multiplyScalar(maxHorizSpeed);
-            body.velocity.x = horizontalVel.x;
-            body.velocity.z = horizontalVel.z;
-        }
+        // Set forward velocity based on facing direction
+        body.velocity.x = forwardDir.x * moveSpeed * 40;
+        body.velocity.z = forwardDir.z * moveSpeed * 40;
         
         // Keep Y velocity zero for ground units
         if (!enemy.isDrone && !enemy.isFlyingBoss && !mesh.userData.hoverArmor) {
@@ -186,16 +177,24 @@ function applyWalkingAI(enemy, allEnemies, deltaTime) {
         }
     } else {
         // Direct position adjustment for non-physics enemies
-        const adjustment = totalSteering.multiplyScalar(deltaTime * 0.06);
-        mesh.position.add(adjustment);
+        const movement = forwardDir.multiplyScalar(moveSpeed);
+        mesh.position.add(movement);
+    }
+    
+    // Apply lateral avoidance force to prevent stacking
+    const avoidanceForce = calculateAvoidanceSteering(enemy, allEnemies, ENEMY_AI_CONFIG.avoidanceRadius);
+    if (avoidanceForce.length() > 0.01 && mesh.userData.physicsBody) {
+        const body = mesh.userData.physicsBody;
+        body.velocity.x += avoidanceForce.x * 20;
+        body.velocity.z += avoidanceForce.z * 20;
     }
     
     // Update walk animation phase based on movement
     if (mesh.userData.walkPhase !== undefined) {
         const horizontalSpeed = new THREE.Vector3(
-            mesh.userData.physicsBody ? mesh.userData.physicsBody.velocity.x : 0,
+            mesh.userData.physicsBody ? mesh.userData.physicsBody.velocity.x : moveSpeed,
             0,
-            mesh.userData.physicsBody ? mesh.userData.physicsBody.velocity.z : 0
+            mesh.userData.physicsBody ? mesh.userData.physicsBody.velocity.z : moveSpeed
         ).length();
         
         // Sync walk phase with actual movement
@@ -245,6 +244,36 @@ function updateEnemyAI(enemiesArray, deltaTime) {
                     if (enemy.pathIdx >= pathPoints.length - 1) {
                         // Enemy reached the base - will be handled in game.js
                         // Just mark it for removal on next game loop iteration
+                    }
+                }
+            }
+            
+            // Handle flying units (drones, hover armor) separately
+            if (enemy.isDrone || enemy.mesh.userData.hoverArmor) {
+                const mesh = enemy.mesh;
+                const targetWaypoint = pathPoints[enemy.pathIdx + 1];
+                if (targetWaypoint) {
+                    // Flying units move directly towards waypoint
+                    const dir = new THREE.Vector3().subVectors(targetWaypoint, mesh.position);
+                    const dist = dir.length();
+                    
+                    if (dist > 0.5) {
+                        dir.normalize();
+                        mesh.lookAt(targetWaypoint);
+                        
+                        const flySpeed = enemy.speed * 50;
+                        if (mesh.userData.physicsBody) {
+                            const body = mesh.userData.physicsBody;
+                            body.velocity.x = dir.x * flySpeed;
+                            body.velocity.z = dir.z * flySpeed;
+                            // Maintain hover height
+                            const targetHeight = enemy.isDrone ? 1.2 : 0.7;
+                            const heightDiff = targetHeight - mesh.position.y;
+                            mesh.position.y += heightDiff * 0.05;
+                            body.velocity.y = 0;
+                        } else {
+                            mesh.position.add(dir.multiplyScalar(enemy.speed));
+                        }
                     }
                 }
             }
