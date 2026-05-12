@@ -928,9 +928,12 @@ function gameLoop(time) {
                 // Move towards target using physics velocity
                 const forwardSpeed = e.speed * 60; // Scale for physics timestep
                 
-                // Set velocity directly towards target
-                body.velocity.x = dir.x * forwardSpeed;
+                // Set velocity directly towards target on Z axis only (path following)
+                // X axis is controlled by physics collisions between enemies
                 body.velocity.z = dir.z * forwardSpeed;
+                
+                // Preserve current X velocity from physics (collision avoidance)
+                // Don't override it with path-following velocity
                 
                 // Position sync is done in updateEnemyPhysics after physics step
             } else {

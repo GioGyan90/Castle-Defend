@@ -4,6 +4,10 @@
 let enemyPhysicsWorld = null;
 const enemyBodies = []; // Store all enemy rigid bodies
 
+// Collision group constants
+const ENEMY_GROUP = 1;  // Binary: 0001
+const ENVIRONMENT_GROUP = 2;  // Binary: 0010
+
 // Initialize physics world for enemies
 function initEnemyPhysics() {
     if (enemyPhysicsWorld) return;
@@ -33,7 +37,9 @@ function addEnemyRigidBody(group, radius, height, mass) {
         linearDamping: 0.5,
         angularDamping: 0.9,
         fixedRotation: true,
-        allowSleep: false
+        allowSleep: false,
+        collisionFilterGroup: ENEMY_GROUP,
+        collisionFilterMask: ENEMY_GROUP  // Only collide with other enemies, not environment
     });
     
     // Store the body reference
@@ -66,9 +72,14 @@ function updateEnemyPhysics(time) {
             body.position.y = targetY;
             body.velocity.y = 0; // No vertical movement from physics
             
-            // Sync visual X position from physics body (for collision avoidance)
+            // Sync visual X/Z position from physics body (for collision avoidance between enemies)
             // But preserve Z position which is controlled by game logic for path following
+            // Only apply X offset from physics to avoid pushing enemies off path
             group.position.x = body.position.x;
+            
+            // Important: Reset physics body position to match visual Z (path-following)
+            // This ensures enemies follow the map path while still avoiding each other laterally
+            body.position.z = group.position.z;
         }
     });
 }
