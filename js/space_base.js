@@ -204,7 +204,7 @@ function createSpaceBaseModel(THREE) {
     base.userData.hitAlertLights = alertLights;
     base.userData.hitAlertTime = 0;
     base.userData.hitAlertDuration = 420;
-    base.scale.setScalar(0.55);
+    base.scale.setScalar(0.35); // Smaller base for mobile-first design
 
     return base;
 }
