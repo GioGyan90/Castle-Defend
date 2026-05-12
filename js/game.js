@@ -129,7 +129,7 @@ function buildMap() {
     
     // 地面
     const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(250, 250), 
+        new THREE.PlaneGeometry(250 * 1.5, 250 * 1.5), 
         new THREE.MeshPhongMaterial({ color: 0x2d3436 })
     );
     ground.rotation.x = -Math.PI / 2;
