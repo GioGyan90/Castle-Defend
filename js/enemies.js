@@ -9,33 +9,41 @@ function initEnemyPhysics() {
     if (enemyPhysicsWorld) return;
     
     enemyPhysicsWorld = new CANNON.World();
-    enemyPhysicsWorld.gravity.set(0, -9.82, 0);
+    enemyPhysicsWorld.gravity.set(0, 0, 0); // No gravity - enemies fly/hover
     enemyPhysicsWorld.broadphase = new CANNON.NaiveBroadphase();
     enemyPhysicsWorld.solver.iterations = 10;
     
     // Create contact material for enemy-enemy collisions
     const enemyMaterial = new CANNON.Material('enemyMaterial');
     const enemyContactMaterial = new CANNON.ContactMaterial(enemyMaterial, enemyMaterial, {
-        friction: 0.1,
-        restitution: 0.0
+        friction: 0.3,
+        restitution: 0.1
     });
     enemyPhysicsWorld.addContactMaterial(enemyContactMaterial);
 }
 
 // Add rigid body to an enemy group
 function addEnemyRigidBody(group, radius, height, mass) {
-    const shape = new CANNON.Cylinder(radius, radius, height, 8);
+    // Create a sphere shape for collision detection
+    const shape = new CANNON.Sphere(radius);
     const body = new CANNON.Body({
         mass: mass,
-        position: new CANNON.Vec3(0, height/2, 0),
+        position: new CANNON.Vec3(group.position.x, group.position.y, group.position.z),
         shape: shape,
-        linearDamping: 0.9,
-        angularDamping: 0.9
+        linearDamping: 0.5,
+        angularDamping: 0.9,
+        fixedRotation: true,
+        allowSleep: false
     });
     
     // Store the body reference
     group.userData.physicsBody = body;
     enemyBodies.push({ group, body });
+    
+    // Add body to physics world
+    if (enemyPhysicsWorld) {
+        enemyPhysicsWorld.addBody(body);
+    }
     
     return body;
 }
@@ -50,10 +58,17 @@ function updateEnemyPhysics(time) {
     // Sync visual meshes with physics bodies
     enemyBodies.forEach(({ group, body }) => {
         if (group && group.position) {
-            // Only update position from physics, keep visual rotation for animations
+            // Apply movement from game logic to physics body velocity
+            // This allows enemies to move forward while still colliding with each other
+            const targetY = group.position.y;
+            
+            // Update physics body Y position to match visual (for flying/hovering)
+            body.position.y = targetY;
+            body.velocity.y = 0; // No vertical movement from physics
+            
+            // Sync visual position from physics for X and Z (collision avoidance)
             group.position.x = body.position.x;
             group.position.z = body.position.z;
-            // Keep Y position controlled by movement logic or flying
         }
     });
 }
