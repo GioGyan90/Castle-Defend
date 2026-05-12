@@ -6,23 +6,24 @@ var LEVELS = {
         enemies: 70, 
         bossHp: 120, 
         title: "Mission 1", 
-        // Simple straight path from left to right (compact, centered)
-        // Enemy spawn point: [-14, 0]
-        // Base location: [14, 0] (end of path)
+        // L-shaped path: center-symmetric bend
+        // Enemy spawn point: [-12, -8] (bottom-left)
+        // Base location: [12, 8] (top-right - end of path)
+        // Road width: 3.0 (accommodates 2+ enemies side by side)
         points: [
-            [-14, 0],   // Spawn point (left side)
-            [-7, 0],    // First waypoint
-            [0, 0],     // Center
-            [7, 0],     // Second waypoint
-            [14, 0]     // Base location (right side - end of path)
+            [-12, -8],  // Spawn point (bottom-left)
+            [-12, 0],   // First segment
+            [-12, 8],   // Corner (top-left)
+            [0, 8],     // Second segment
+            [12, 8]     // Base location (top-right - end of path)
         ], 
         slots: [
-            {x:-10, z:5},   // Left-top slot
-            {x:-10, z:-5},  // Left-bottom slot
-            {x:0, z:6},     // Center-top slot
-            {x:0, z:-6},    // Center-bottom slot
-            {x:10, z:5},    // Right-top slot
-            {x:10, z:-5}    // Right-bottom slot
+            {x:-14, z:-4},  // Start section sides
+            {x:-10, z:-4},
+            {x:-14, z:4},   // Corner area
+            {x:-10, z:12},
+            {x:2, z:10},    // End section sides
+            {x:6, z:6}
         ] 
     },
     2: { 
