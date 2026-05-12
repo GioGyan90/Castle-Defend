@@ -66,10 +66,9 @@ function updateEnemyPhysics(time) {
             body.position.y = targetY;
             body.velocity.y = 0; // No vertical movement from physics
             
-            // Sync visual X and Z positions from physics body
-            // This ensures collision avoidance is reflected in visual position
+            // Sync visual X position from physics body (for collision avoidance)
+            // But preserve Z position which is controlled by game logic for path following
             group.position.x = body.position.x;
-            group.position.z = body.position.z;
         }
     });
 }
