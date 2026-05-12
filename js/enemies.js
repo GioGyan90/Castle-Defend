@@ -56,6 +56,8 @@ function updateEnemyPhysics(time) {
     enemyPhysicsWorld.step(1/60);
     
     // Sync visual meshes with physics bodies
+    // Note: Position sync is now done in game.js after applying physics velocity
+    // This function only handles Y position for flying/hovering enemies
     enemyBodies.forEach(({ group, body }) => {
         if (group && group.position) {
             const targetY = group.position.y;
@@ -64,10 +66,9 @@ function updateEnemyPhysics(time) {
             body.position.y = targetY;
             body.velocity.y = 0; // No vertical movement from physics
             
-            // Only apply physics collision to X axis (lateral avoidance)
-            // Z axis (forward movement) is controlled by game logic
+            // Sync visual X position from physics body (for collision avoidance)
+            // But preserve Z position which is controlled by game logic for path following
             group.position.x = body.position.x;
-            // Keep Z position from game logic - do not overwrite with physics
         }
     });
 }
