@@ -601,6 +601,12 @@ function killEnemy(enemy, sourceBullet = null, skipExplosion = false) {
 
     const killedIsBoss = enemy.isBoss;
     const deathPosition = enemy.mesh.position.clone();
+    
+    // Remove from physics world first
+    if (typeof removeEnemyFromBodyList === 'function') {
+        removeEnemyFromBodyList(enemy.mesh);
+    }
+    
     scene.remove(enemy.mesh);
     const idx = enemies.indexOf(enemy);
     if (idx !== -1) {
@@ -853,10 +859,10 @@ function gameLoop(time) {
             initEnemyPhysics();
         }
         if (typeof addEnemyRigidBody === 'function' && !enemyMesh.userData.hasPhysics) {
-            // Add a cylinder rigid body for collision detection
-            const radius = 0.4;
+            // Add a sphere rigid body for collision detection
+            const radius = 0.35; // Slightly smaller than visual model to prevent excessive pushing
             const height = 1.2;
-            const mass = 5; // kg
+            const mass = 2; // Lighter mass for easier movement
             addEnemyRigidBody(enemyMesh, radius, height, mass);
             enemyMesh.userData.hasPhysics = true;
         }
@@ -893,6 +899,10 @@ function gameLoop(time) {
         if (dist < 0.5) {
             e.pathIdx++;
             if (e.pathIdx >= enemyPath.length - 1) {
+                // Remove from physics world first
+                if (typeof removeEnemyFromBodyList === 'function') {
+                    removeEnemyFromBodyList(e.mesh);
+                }
                 scene.remove(e.mesh);
                 enemies.splice(i, 1);
                 lives -= e.isBoss ? 5 : 1;
@@ -908,8 +918,20 @@ function gameLoop(time) {
             }
         } else {
             dir.normalize();
-            e.mesh.position.add(dir.multiplyScalar(e.speed));
+            // Apply movement to both visual mesh and physics body
+            const moveDistance = e.speed;
+            
+            // Update visual position
+            e.mesh.position.add(dir.multiplyScalar(moveDistance));
             e.mesh.lookAt(target);
+            
+            // Also update physics body velocity to match movement direction
+            if (e.mesh.userData.physicsBody) {
+                const body = e.mesh.userData.physicsBody;
+                // Set velocity in the movement direction
+                body.velocity.x = dir.x * moveDistance * 60; // Scale for physics timestep
+                body.velocity.z = dir.z * moveDistance * 60;
+            }
         }
         
         // 播放动画
