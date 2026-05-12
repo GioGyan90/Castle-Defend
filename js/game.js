@@ -847,6 +847,20 @@ function gameLoop(time) {
             modelType: spawnConfig.modelType
         };
         enemyMesh.position.copy(enemyPath[0]);
+        
+        // Initialize physics for this enemy if physics world exists
+        if (typeof initEnemyPhysics === 'function') {
+            initEnemyPhysics();
+        }
+        if (typeof addEnemyRigidBody === 'function' && !enemyMesh.userData.hasPhysics) {
+            // Add a cylinder rigid body for collision detection
+            const radius = 0.4;
+            const height = 1.2;
+            const mass = 5; // kg
+            addEnemyRigidBody(enemyMesh, radius, height, mass);
+            enemyMesh.userData.hasPhysics = true;
+        }
+        
         scene.add(enemyMesh);
         enemies.push(e);
     } else if (spawnedCount >= LEVELS[currentLevel].enemies && enemies.length === 0 && !bossSpawned) {
@@ -900,6 +914,11 @@ function gameLoop(time) {
         
         // 播放动画
         animateEnemy(e, time);
+    }
+    
+    // Update enemy physics simulation (collision avoidance between enemies)
+    if (typeof updateEnemyPhysics === 'function') {
+        updateEnemyPhysics(time);
     }
     
     // 武器射击

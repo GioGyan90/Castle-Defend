@@ -1,14 +1,88 @@
 ﻿// Enemy and Boss models.
+
+// Global physics world for enemy collision detection
+let enemyPhysicsWorld = null;
+const enemyBodies = []; // Store all enemy rigid bodies
+
+// Initialize physics world for enemies
+function initEnemyPhysics() {
+    if (enemyPhysicsWorld) return;
+    
+    enemyPhysicsWorld = new CANNON.World();
+    enemyPhysicsWorld.gravity.set(0, -9.82, 0);
+    enemyPhysicsWorld.broadphase = new CANNON.NaiveBroadphase();
+    enemyPhysicsWorld.solver.iterations = 10;
+    
+    // Create contact material for enemy-enemy collisions
+    const enemyMaterial = new CANNON.Material('enemyMaterial');
+    const enemyContactMaterial = new CANNON.ContactMaterial(enemyMaterial, enemyMaterial, {
+        friction: 0.1,
+        restitution: 0.0
+    });
+    enemyPhysicsWorld.addContactMaterial(enemyContactMaterial);
+}
+
+// Add rigid body to an enemy group
+function addEnemyRigidBody(group, radius, height, mass) {
+    const shape = new CANNON.Cylinder(radius, radius, height, 8);
+    const body = new CANNON.Body({
+        mass: mass,
+        position: new CANNON.Vec3(0, height/2, 0),
+        shape: shape,
+        linearDamping: 0.9,
+        angularDamping: 0.9
+    });
+    
+    // Store the body reference
+    group.userData.physicsBody = body;
+    enemyBodies.push({ group, body });
+    
+    return body;
+}
+
+// Update all enemy physics bodies to match their visual positions
+function updateEnemyPhysics(time) {
+    if (!enemyPhysicsWorld) return;
+    
+    // Step the physics simulation
+    enemyPhysicsWorld.step(1/60);
+    
+    // Sync visual meshes with physics bodies
+    enemyBodies.forEach(({ group, body }) => {
+        if (group && group.position) {
+            // Only update position from physics, keep visual rotation for animations
+            group.position.x = body.position.x;
+            group.position.z = body.position.z;
+            // Keep Y position controlled by movement logic or flying
+        }
+    });
+}
+
+// Remove enemy from physics world
+function removeEnemyFromBodyList(group) {
+    const idx = enemyBodies.findIndex(item => item.group === group);
+    if (idx !== -1) {
+        const { body } = enemyBodies[idx];
+        enemyPhysicsWorld.removeBody(body);
+        enemyBodies.splice(idx, 1);
+    }
+}
+
 function createRobotEnemy(isHard) {
     const group = new THREE.Group();
     
-    // 颜色：灰色（普通）或 橙色（精英）
+    // Colors: gray (normal) or orange (elite)
     const bodyColor = isHard ? 0xff793f : 0x95a5a6;
     const bodyMat = new THREE.MeshPhongMaterial({ color: bodyColor, flatShading: true });
     const jointMat = new THREE.MeshPhongMaterial({ color: 0x555555, flatShading: true });
     
+    // Body dimensions for physics
+    const bodyWidth = 0.5;
+    const bodyHeight = 0.6;
+    const bodyDepth = 0.35;
+    
     // 身体主体（矩形躯干）
-    const bodyGeo = new THREE.BoxGeometry(0.5, 0.6, 0.35);
+    const bodyGeo = new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth);
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     body.position.y = 0.9;
     group.add(body);
@@ -77,7 +151,8 @@ function createRobotEnemy(isHard) {
         leftLegGroup,
         rightLegGroup,
         leftEye: eye,
-        rightEye: eye
+        rightEye: eye,
+        hasPhysics: false
     };
     
     return group;
@@ -194,7 +269,8 @@ function createDroneEnemy(isElite = true) {
         propellers,
         core,
         sideLights,
-        spinSpeed: 0.3 + Math.random() * 0.1
+        spinSpeed: 0.3 + Math.random() * 0.1,
+        hasPhysics: false
     };
     
     return group;
@@ -275,7 +351,8 @@ function createHoverArmorEnemy() {
         hoverArmor: true,
         launcherGroup,
         sideLights,
-        hoverPhase: Math.random() * Math.PI * 2
+        hoverPhase: Math.random() * Math.PI * 2,
+        hasPhysics: false
     };
 
     return group;
@@ -364,7 +441,7 @@ function createArmoredUnitEnemy() {
 
     tower.position.y = 1.2;
     group.add(chassis, tower);
-    group.userData = { armoredUnit: true, tower };
+    group.userData = { armoredUnit: true, tower, hasPhysics: false };
     group.scale.setScalar(0.55);
 
     return group;
@@ -605,7 +682,8 @@ function createSteelGorillaBoss(parentGroup) {
         rightLegGroup,
         baseBodyY: body.position.y,
         baseRearY: rearBody.position.y,
-        baseHeadY: head.position.y
+        baseHeadY: head.position.y,
+        hasPhysics: false
     };
 }
 
@@ -1102,6 +1180,7 @@ function createHelicopterBoss(parentGroup) {
     parentGroup.userData.helicopter = heliGroup;
     parentGroup.userData.mainRotor = mainRotorGroup;
     parentGroup.userData.tailRotor = tailRotorGroup;
+    parentGroup.userData.hasPhysics = false;
 }
 
 // 创建机器人鲨鱼 Boss
@@ -1181,6 +1260,7 @@ function createSharkRobotBoss(parentGroup) {
     
     parentGroup.add(sharkGroup);
     parentGroup.userData.shark = sharkGroup;
+    parentGroup.userData.hasPhysics = false;
 }
 
 // 创建独轮炮车模型 (Wheelbarrow) - 橙蓝配色
@@ -1292,7 +1372,8 @@ function createWheelbarrowModel() {
     group.userData = {
         wheelbarrow: true,
         cannonGroup,
-        wheel
+        wheel,
+        hasPhysics: false
     };
     
     return group;
