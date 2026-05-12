@@ -918,19 +918,24 @@ function gameLoop(time) {
             }
         } else {
             dir.normalize();
-            // Apply movement to both visual mesh and physics body
-            const moveDistance = e.speed;
             
-            // Update visual position
-            e.mesh.position.add(dir.multiplyScalar(moveDistance));
+            // Update visual mesh rotation to face the target direction
             e.mesh.lookAt(target);
             
-            // Also update physics body velocity to match movement direction
+            // Apply movement force to physics body (if exists) or directly to mesh
             if (e.mesh.userData.physicsBody) {
                 const body = e.mesh.userData.physicsBody;
-                // Only set Z velocity for forward movement, X velocity handled by collision
-                body.velocity.z = dir.z * moveDistance * 60; // Scale for physics timestep
-                // Do not override X velocity - let physics handle lateral collisions
+                // Move towards target using physics velocity
+                const forwardSpeed = e.speed * 60; // Scale for physics timestep
+                
+                // Set velocity directly towards target
+                body.velocity.x = dir.x * forwardSpeed;
+                body.velocity.z = dir.z * forwardSpeed;
+                
+                // Position sync is done in updateEnemyPhysics after physics step
+            } else {
+                // No physics - direct movement
+                e.mesh.position.add(dir.multiplyScalar(e.speed));
             }
         }
         

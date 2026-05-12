@@ -116,7 +116,11 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.min.js"></script>
+<script>
+// Make CANNON available globally for legacy code
+window.CANNON = cannon;
+</script>
 <script src="js/weapon_config.js"></script>
 <script src="js/enemy_config.js"></script>
 <script src="js/config.js"></script>
