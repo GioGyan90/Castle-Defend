@@ -1,5 +1,5 @@
 ```
-# Compiled and build artifacts
+# Compiled and binary files
 *.pyc
 __pycache__/
 *.o
@@ -7,11 +7,7 @@ __pycache__/
 *.exe
 *.dll
 *.so
-*.a
-*.out
-dist/
-build/
-target/
+*.class
 
 # Dependencies
 node_modules/
@@ -21,13 +17,18 @@ venv/
 .env.local
 .env.*
 
-# Logs and temp files
+# Build artifacts
+dist/
+build/
+target/
+
+# Logs and temporary files
 *.log
 *.tmp
 *.swp
 *.swo
 
-# Editors
+# Editor/IDE files
 .vscode/
 .idea/
 *.swp
@@ -61,4 +62,8 @@ htmlcov/
 *.Z
 *.lz
 *.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 ```
