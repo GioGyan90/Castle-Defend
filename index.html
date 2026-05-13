@@ -102,11 +102,25 @@
 
 <div id="bottom-nav" style="display:none;">
     <div class="shop-row">
-        <button id="btn1" class="weapon-btn" onclick="buyWeapon(1)">PULSE <span id="price1" class="price-tag">3 Pts</span></button>
-        <button id="btn2" class="weapon-btn" onclick="buyWeapon(2)">RAIL <span id="price2" class="price-tag">12 Pts</span></button>
-        <button id="btn3" class="weapon-btn" onclick="buyWeapon(3)">TESLA <span id="price3" class="price-tag">25 Pts</span></button>
+        <button id="btn1" class="weapon-btn" onclick="buyWeapon(1)" aria-label="Pulse Cannon" title="Pulse Cannon">
+            <span id="preview1" class="weapon-preview"></span>
+            <span id="price1" class="price-tag">3</span>
+        </button>
+        <button id="btn2" class="weapon-btn" onclick="buyWeapon(2)" aria-label="Rail Laser" title="Rail Laser">
+            <span id="preview2" class="weapon-preview"></span>
+            <span id="price2" class="price-tag">12</span>
+        </button>
+        <button id="btn3" class="weapon-btn" onclick="buyWeapon(3)" aria-label="Tesla Coil" title="Tesla Coil">
+            <span id="preview3" class="weapon-preview"></span>
+            <span id="price3" class="price-tag">25</span>
+        </button>
+        <button id="btn4" class="weapon-btn tactical-btn" onclick="buyAirstrike()" aria-label="Airstrike" title="Airstrike">
+            <span id="preview4" class="weapon-preview"></span>
+            <span id="price4" class="price-tag">30</span>
+            <span id="cooldown4" class="cooldown-mask"></span>
+        </button>
     </div>
-    <button id="btnSell" onclick="toggleSellMode()">RECYCLE (50% Refund)</button>
+    <button id="btnSell" onclick="toggleSellMode()" aria-label="Recycle" title="Recycle">♻</button>
 </div>
 
 <div id="endScreen">
@@ -130,6 +144,8 @@ window.CANNON = CANNON;
 <script src="js/imported_chopper_model.js"></script>
 <script src="js/castle.js"></script>
 <script src="js/space_base.js"></script>
+<script src="js/game_audio.js"></script>
+<script src="js/boss_warning.js"></script>
 <script src="js/game.js"></script>
 <script src="js/gallery.js"></script>
 </body>

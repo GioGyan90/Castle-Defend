@@ -105,29 +105,33 @@ function getGalleryModels(type) {
         return [
             { name: 'Pulse Cannon', build: () => createWeaponModel(1) },
             { name: 'Rail Laser', build: () => createWeaponModel(2) },
-            { name: 'Tesla Coil', build: () => createWeaponModel(3) }
+            { name: 'Tesla Coil', build: () => createWeaponModel(3) },
+            { name: 'Airstrike', build: () => createWeaponModel(4) }
         ];
     }
 
     return [
-        { name: '普通机器人', build: () => createRobotEnemy(false) },
-        { name: '精英无人机', build: () => createDroneEnemy(true) },
-        { name: '无人机', build: () => createDroneEnemy(false) },
-        { name: '装甲单位', build: () => createArmoredUnitEnemy() },
-        { name: '悬浮装甲', build: () => createHoverArmorEnemy() },
-        { name: 'Mission 1 Boss', build: () => createTankBossPreview(1) },
-        { name: 'Mission 2 Boss', build: () => createTankBossPreview(2) },
+        { name: '普通机器人', category: '步兵', soundModelType: 'robot', build: () => createRobotEnemy(false) },
+        { name: '强化机器人', category: '步兵', soundModelType: 'heavyRobot', build: () => createHeavyRobotEnemy() },
+        { name: '精英无人机', category: '空军', soundModelType: 'eliteDrone', build: () => createDroneEnemy(true) },
+        { name: '无人机', category: '空军', soundModelType: 'drone', build: () => createDroneEnemy(false) },
+        { name: '装甲单位', category: '装甲', soundModelType: 'armored', build: () => createArmoredUnitEnemy() },
+        { name: '悬浮装甲', category: '空军', soundModelType: 'hoverArmor', build: () => createHoverArmorEnemy() },
+        { name: 'Portal A', category: '传送门', soundModelType: 'portalA', build: () => createPortalAEnemy() },
+        { name: 'Portal B', category: '传送门', soundModelType: 'portalB', build: () => createPortalBEnemy() },
+        { name: 'Mission 1 Boss', category: 'Boss', soundModelType: 'tankBoss', build: () => createTankBossPreview(1) },
+        { name: 'Mission 2 Boss', category: 'Boss', soundModelType: 'tankBoss', build: () => createTankBossPreview(2) },
         { name: 'Final Boss Alpha', build: () => {
             const group = new THREE.Group();
             createSteelGorillaBoss(group);
             return group;
-        } },
+        }, category: 'Boss', soundModelType: 'gorillaBoss' },
         { name: 'Chopper', build: () => {
             return createImportedChopperModel(THREE);
-        } },
+        }, category: 'Boss', soundModelType: 'helicopterBoss' },
         { name: 'Wheelbarrow', build: () => {
             return createWheelbarrowModel();
-        } }
+        }, category: '装甲', soundModelType: 'wheelbarrow' }
     ];
 }
 
@@ -159,8 +163,36 @@ function addPreviewCard(grid, item) {
     label.className = 'model-name';
     label.textContent = item.name;
 
+    const category = document.createElement('div');
+    category.className = 'model-category';
+    category.textContent = item.category || '';
+
     card.appendChild(view);
     card.appendChild(label);
+    if (item.category) {
+        card.appendChild(category);
+    }
+
+    if (item.soundModelType) {
+        const audioBtn = document.createElement('button');
+        const soundType = typeof getEnemyMovementSoundTypeByModel === 'function'
+            ? getEnemyMovementSoundTypeByModel(item.soundModelType)
+            : null;
+        const soundLabel = soundType && ENEMY_MOVEMENT_SOUNDS[soundType]
+            ? ENEMY_MOVEMENT_SOUNDS[soundType].label
+            : '走路声';
+        audioBtn.className = 'gallery-audio-btn';
+        audioBtn.type = 'button';
+        audioBtn.textContent = '播放走路音频';
+        audioBtn.title = soundLabel;
+        audioBtn.addEventListener('click', () => {
+            if (typeof playEnemyWalkSample === 'function') {
+                playEnemyWalkSample(item.soundModelType);
+            }
+        });
+        card.appendChild(audioBtn);
+    }
+
     grid.appendChild(card);
 
     const width = Math.max(1, view.clientWidth);
@@ -330,4 +362,3 @@ function clearLeaderboard() {
         showLeaderboard();
     }
 }
-

@@ -8,7 +8,7 @@ var WEAPON_CONFIG = {
         price: 3,
         range: 7,
         fireIntervalMs: 1200,
-        damage: 2,
+        damage: 3,
         critDamage: 5,
         critRate: 0.3,
         projectileSpeed: 0.12
@@ -44,6 +44,16 @@ var WEAPON_CONFIG = {
         teslaAoeRadius: 3,
         teslaLifeFrames: 10,
         teslaFrameDamageRatio: 0.1
+    },
+    4: {
+        key: 'AIRSTRIKE',
+        name: 'Airstrike',
+        price: 30,
+        damage: 15,
+        cooldownMs: 15000,
+        length: 9,
+        width: 4.2,
+        rows: 9
     }
 };
 

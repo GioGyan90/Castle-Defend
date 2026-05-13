@@ -180,6 +180,204 @@ function createRobotEnemy(isHard) {
     return group;
 }
 
+function createHeavyRobotEnemy() {
+    const group = new THREE.Group();
+    const bodyMat = new THREE.MeshPhongMaterial({
+        color: 0x08080d,
+        emissive: 0x150012,
+        emissiveIntensity: 0.32,
+        flatShading: true
+    });
+    const armorMat = new THREE.MeshPhongMaterial({
+        color: 0x1b1b26,
+        emissive: 0x23001e,
+        emissiveIntensity: 0.28,
+        flatShading: true
+    });
+    const jointMat = new THREE.MeshPhongMaterial({ color: 0x34313d, flatShading: true });
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0xff4fd8 });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.42, 0.42), bodyMat);
+    body.position.y = 1.02;
+    group.add(body);
+
+    const chest = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.08, 0.46), glowMat);
+    chest.position.set(0, 1.06, 0.24);
+    group.add(chest);
+
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.28, 0.38), armorMat);
+    head.position.y = 1.38;
+    group.add(head);
+
+    const crestLeft = createTrapezoidMesh(0.16, 0.3, 0.18, 0.12, 0.18, armorMat);
+    crestLeft.position.set(-0.21, 1.57, 0.02);
+    crestLeft.rotation.z = -0.32;
+    crestLeft.rotation.y = 0.12;
+    const crestRight = createTrapezoidMesh(0.16, 0.3, 0.18, 0.12, 0.18, armorMat);
+    crestRight.position.set(0.21, 1.57, 0.02);
+    crestRight.rotation.z = 0.32;
+    crestRight.rotation.y = -0.12;
+    group.add(crestLeft, crestRight);
+
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.08, 0.06), glowMat);
+    visor.position.set(0, 1.41, 0.22);
+    group.add(visor);
+
+    const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.065, 8, 8), glowMat);
+    leftEye.position.set(-0.12, 1.41, 0.25);
+    const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.065, 8, 8), glowMat);
+    rightEye.position.set(0.12, 1.41, 0.25);
+    group.add(leftEye, rightEye);
+
+    const createGunArm = (side) => {
+        const arm = new THREE.Group();
+        arm.position.set(side * 0.42, 1.14, 0.08);
+
+        const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.34, 8), bodyMat);
+        upperArm.rotation.x = 0.98;
+        upperArm.rotation.z = side * 0.2;
+        upperArm.position.set(side * 0.04, -0.1, 0.16);
+        arm.add(upperArm);
+
+        const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.105, 10, 10), armorMat);
+        elbow.position.set(side * 0.07, -0.2, 0.31);
+        arm.add(elbow);
+
+        const gunMount = new THREE.Group();
+        gunMount.position.set(side * 0.08, -0.24, 0.48);
+        gunMount.rotation.x = 0.06;
+        arm.add(gunMount);
+
+        const forearm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.5), armorMat);
+        forearm.position.z = 0.08;
+        gunMount.add(forearm);
+
+        [-0.045, 0.045].forEach(offset => {
+            const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.026, 0.56, 8), jointMat);
+            barrel.rotation.x = Math.PI / 2;
+            barrel.position.set(offset, -0.02, 0.45);
+            gunMount.add(barrel);
+
+            const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.03, 0.08, 8), glowMat);
+            muzzle.rotation.x = Math.PI / 2;
+            muzzle.position.set(offset, -0.02, 0.76);
+            gunMount.add(muzzle);
+        });
+
+        return { arm, gunMount };
+    };
+
+    const leftArmState = createGunArm(-1);
+    const rightArmState = createGunArm(1);
+    const leftArm = leftArmState.arm;
+    const rightArm = rightArmState.arm;
+    group.add(leftArm, rightArm);
+
+    const createHeavyLeg = (side) => {
+        const legGroup = new THREE.Group();
+        legGroup.position.set(side * 0.24, 0.88, -0.05);
+
+        const thighGroup = new THREE.Group();
+        thighGroup.rotation.x = 0.42;
+        legGroup.add(thighGroup);
+
+        const upperLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.1, 0.5, 8), bodyMat);
+        upperLeg.position.y = -0.25;
+        upperLeg.rotation.z = side * 0.08;
+        thighGroup.add(upperLeg);
+
+        const knee = new THREE.Mesh(new THREE.SphereGeometry(0.145, 10, 10), armorMat);
+        knee.position.set(0, -0.5, 0);
+        thighGroup.add(knee);
+
+        const lowerLegGroup = new THREE.Group();
+        lowerLegGroup.position.set(0, -0.5, 0);
+        lowerLegGroup.rotation.x = -0.72;
+        thighGroup.add(lowerLegGroup);
+
+        const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.13, 0.58, 8), jointMat);
+        shin.position.y = -0.29;
+        lowerLegGroup.add(shin);
+
+        const shinGuard = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.38, 0.09), armorMat);
+        shinGuard.position.set(0, -0.3, 0.08);
+        lowerLegGroup.add(shinGuard);
+
+        const ankle = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), armorMat);
+        ankle.position.y = -0.61;
+        lowerLegGroup.add(ankle);
+
+        const footGroup = new THREE.Group();
+        footGroup.position.set(0, -0.67, 0.12);
+        footGroup.rotation.x = 0.28;
+        lowerLegGroup.add(footGroup);
+
+        const sole = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.09, 0.48), armorMat);
+        sole.position.set(0, -0.01, 0.16);
+        footGroup.add(sole);
+
+        const heel = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.08, 0.2), jointMat);
+        heel.position.set(0, 0.01, -0.12);
+        footGroup.add(heel);
+
+        [
+            { x: -0.16, z: 0.45, rot: 0.22 },
+            { x: 0, z: 0.5, rot: 0 },
+            { x: 0.16, z: 0.45, rot: -0.22 }
+        ].forEach(toeInfo => {
+            const toe = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.34), armorMat);
+            toe.position.set(toeInfo.x, -0.01, toeInfo.z);
+            toe.rotation.y = toeInfo.rot;
+            footGroup.add(toe);
+
+            const claw = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.18, 4), glowMat);
+            claw.rotation.x = Math.PI / 2;
+            claw.rotation.y = toeInfo.rot;
+            claw.position.set(toeInfo.x + Math.sin(toeInfo.rot) * 0.08, -0.01, toeInfo.z + 0.22);
+            footGroup.add(claw);
+        });
+
+        return { legGroup, thighGroup, lowerLegGroup, footGroup };
+    };
+
+    const leftLeg = createHeavyLeg(-1);
+    const rightLeg = createHeavyLeg(1);
+    const leftLegGroup = leftLeg.legGroup;
+    const rightLegGroup = rightLeg.legGroup;
+    group.add(leftLegGroup, rightLegGroup);
+
+    group.userData = {
+        heavyRobot: true,
+        walkPhase: Math.random() * Math.PI * 2,
+        body,
+        head,
+        leftArm,
+        rightArm,
+        leftLegGroup,
+        rightLegGroup,
+        leftGunMount: leftArmState.gunMount,
+        rightGunMount: rightArmState.gunMount,
+        leftThighGroup: leftLeg.thighGroup,
+        rightThighGroup: rightLeg.thighGroup,
+        leftLowerLegGroup: leftLeg.lowerLegGroup,
+        rightLowerLegGroup: rightLeg.lowerLegGroup,
+        leftFootGroup: leftLeg.footGroup,
+        rightFootGroup: rightLeg.footGroup,
+        leftEye,
+        rightEye,
+        baseBodyY: body.position.y,
+        baseHeadY: head.position.y,
+        baseLeftArmY: leftArm.position.y,
+        baseRightArmY: rightArm.position.y,
+        baseLeftEyeY: leftEye.position.y,
+        baseRightEyeY: rightEye.position.y,
+        hasPhysics: false
+    };
+    group.scale.setScalar(0.35);
+
+    return group;
+}
+
 // 无人机敌人；精英版为黑色重型机身，带粉红灯光。
 function createDroneEnemy(isElite = true) {
     const group = new THREE.Group();
@@ -200,7 +398,7 @@ function createDroneEnemy(isElite = true) {
     });
     const propellerMat = new THREE.MeshPhongMaterial({ color: isElite ? 0x050507 : 0x333333, flatShading: true });
     
-    // 无人机主体（扁平的六边形）
+    // 无人机主体：六边形平面朝上，形成水平悬浮盘面。
     const bodyGeo = new THREE.CylinderGeometry(
         isElite ? 0.5 : 0.35,
         isElite ? 0.58 : 0.35,
@@ -208,17 +406,36 @@ function createDroneEnemy(isElite = true) {
         6
     );
     const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.rotation.x = Math.PI / 2;
     body.position.y = 1.2;
     group.add(body);
 
+    const deck = new THREE.Mesh(
+        new THREE.CylinderGeometry(
+            isElite ? 0.36 : 0.25,
+            isElite ? 0.42 : 0.28,
+            isElite ? 0.07 : 0.045,
+            6
+        ),
+        armorMat
+    );
+    deck.position.y = isElite ? 1.37 : 1.29;
+    deck.rotation.y = Math.PI / 6;
+    group.add(deck);
+
+    const noseMarker = new THREE.Mesh(
+        new THREE.BoxGeometry(isElite ? 0.2 : 0.13, isElite ? 0.06 : 0.04, isElite ? 0.22 : 0.16),
+        new THREE.MeshBasicMaterial({ color: accentColor })
+    );
+    noseMarker.position.set(0, isElite ? 1.41 : 1.32, isElite ? 0.45 : 0.31);
+    group.add(noseMarker);
+
     if (isElite) {
         const topArmor = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.1, 0.48), armorMat);
-        topArmor.position.y = 1.32;
+        topArmor.position.y = 1.48;
         group.add(topArmor);
 
         const frontArmor = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.12, 0.18), armorMat);
-        frontArmor.position.set(0, 1.22, 0.42);
+        frontArmor.position.set(0, 1.28, 0.48);
         group.add(frontArmor);
     }
     
@@ -471,6 +688,113 @@ function createArmoredUnitEnemy() {
     return group;
 }
 
+function createPortalEnemyModel(options = {}) {
+    const group = new THREE.Group();
+    const mainColor = options.mainColor || 0x32dfff;
+    const coreColor = options.coreColor || 0x9effff;
+    const edgeColor = options.edgeColor || 0x1b7dff;
+    const beaconColor = options.beaconColor || coreColor;
+    const isPortalB = !!options.portalB;
+
+    const hexMat = new THREE.MeshBasicMaterial({
+        color: mainColor,
+        transparent: true,
+        opacity: 0.62,
+        side: THREE.DoubleSide,
+        depthWrite: false
+    });
+    const coreMat = new THREE.MeshBasicMaterial({
+        color: coreColor,
+        transparent: true,
+        opacity: 0.34,
+        side: THREE.DoubleSide,
+        depthWrite: false
+    });
+    const edgeMat = new THREE.MeshBasicMaterial({
+        color: edgeColor,
+        transparent: true,
+        opacity: 0.82,
+        side: THREE.DoubleSide,
+        depthWrite: false
+    });
+
+    const baseHex = new THREE.Mesh(new THREE.CircleGeometry(1.18, 6), coreMat);
+    baseHex.rotation.x = -Math.PI / 2;
+    baseHex.position.y = 0.035;
+    group.add(baseHex);
+
+    const rings = [];
+    [1.22, 0.92, 0.62].forEach((radius, index) => {
+        const ring = new THREE.Mesh(
+            new THREE.RingGeometry(radius * 0.72, radius, 6),
+            index === 0 ? edgeMat : hexMat
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.055 + index * 0.018;
+        ring.userData.spin = (index % 2 === 0 ? 1 : -1) * (0.018 + index * 0.012);
+        ring.userData.baseScale = 1 - index * 0.08;
+        group.add(ring);
+        rings.push(ring);
+    });
+
+    const swirl = new THREE.Group();
+    for (let i = 0; i < 6; i++) {
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.035, 0.82), hexMat);
+        arm.position.z = 0.38;
+        arm.rotation.y = i * Math.PI / 3 + 0.38;
+        swirl.add(arm);
+    }
+    swirl.position.y = 0.11;
+    group.add(swirl);
+
+    const beaconMat = new THREE.MeshBasicMaterial({
+        color: beaconColor,
+        transparent: true,
+        opacity: 0.72,
+        depthWrite: false
+    });
+    const beacons = [];
+    for (let i = 0; i < 6; i++) {
+        const angle = i * Math.PI / 3;
+        const beacon = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.5, 6), beaconMat);
+        beacon.position.set(Math.sin(angle) * 0.98, 0.28, Math.cos(angle) * 0.98);
+        beacon.rotation.x = Math.PI;
+        group.add(beacon);
+        beacons.push(beacon);
+    }
+
+    group.userData = {
+        portalA: !isPortalB,
+        portalB: isPortalB,
+        rings,
+        swirl,
+        beacons,
+        portalPhase: Math.random() * Math.PI * 2,
+        hasPhysics: true
+    };
+
+    return group;
+}
+
+function createPortalAEnemy() {
+    return createPortalEnemyModel({
+        mainColor: 0x32dfff,
+        coreColor: 0x9effff,
+        edgeColor: 0x1b7dff,
+        beaconColor: 0x8ff7ff
+    });
+}
+
+function createPortalBEnemy() {
+    return createPortalEnemyModel({
+        mainColor: 0xb45cff,
+        coreColor: 0xf0b5ff,
+        edgeColor: 0x7b2cff,
+        beaconColor: 0xf2a6ff,
+        portalB: true
+    });
+}
+
 // 敌人动画
 function animateEnemy(e, time) {
     const mesh = e.mesh;
@@ -528,26 +852,66 @@ function animateEnemy(e, time) {
             mesh.userData.sideLights.forEach(light => light.scale.y = pulse);
         }
     }
+    else if (mesh.userData.portalA || mesh.userData.portalB) {
+        mesh.userData.portalPhase += 0.08;
+        const pulse = 0.9 + Math.sin(mesh.userData.portalPhase) * 0.08;
+        if (mesh.userData.swirl) {
+            mesh.userData.swirl.rotation.y += 0.055;
+            mesh.userData.swirl.scale.setScalar(pulse);
+        }
+        if (mesh.userData.rings) {
+            mesh.userData.rings.forEach((ring, index) => {
+                ring.rotation.z += ring.userData.spin || 0.02;
+                const scale = (ring.userData.baseScale || 1) + Math.sin(mesh.userData.portalPhase + index) * 0.06;
+                ring.scale.setScalar(scale);
+            });
+        }
+        if (mesh.userData.beacons) {
+            mesh.userData.beacons.forEach((beacon, index) => {
+                beacon.position.y = 0.22 + Math.sin(mesh.userData.portalPhase + index) * 0.08;
+                beacon.material.opacity = 0.42 + Math.sin(mesh.userData.portalPhase * 1.4 + index) * 0.22;
+            });
+        }
+    }
     // 机器人行走动画
     else if (mesh.userData.walkPhase !== undefined) {
-        const walkSpeed = 0.15;
+        const walkSpeed = mesh.userData.heavyRobot ? 0.075 : 0.15;
         mesh.userData.walkPhase += walkSpeed;
         const legAngle = Math.sin(mesh.userData.walkPhase) * 0.5;
-        
-        mesh.userData.leftLegGroup.rotation.x = legAngle;
-        mesh.userData.rightLegGroup.rotation.x = -legAngle;
+
+        if (mesh.userData.heavyRobot) {
+            const leftStride = Math.sin(mesh.userData.walkPhase);
+            const rightStride = Math.sin(mesh.userData.walkPhase + Math.PI);
+            const leftLift = Math.max(0, leftStride);
+            const rightLift = Math.max(0, rightStride);
+            mesh.userData.leftThighGroup.rotation.x = 0.42 + leftStride * 0.18;
+            mesh.userData.rightThighGroup.rotation.x = 0.42 + rightStride * 0.18;
+            mesh.userData.leftLowerLegGroup.rotation.x = -0.78 + leftLift * 0.42;
+            mesh.userData.rightLowerLegGroup.rotation.x = -0.78 + rightLift * 0.42;
+            mesh.userData.leftFootGroup.rotation.x = 0.34 - leftLift * 0.24;
+            mesh.userData.rightFootGroup.rotation.x = 0.34 - rightLift * 0.24;
+            mesh.userData.leftGunMount.rotation.y = Math.sin(mesh.userData.walkPhase * 0.8) * 0.035;
+            mesh.userData.rightGunMount.rotation.y = -Math.sin(mesh.userData.walkPhase * 0.8) * 0.035;
+            mesh.userData.leftArm.rotation.x = -0.03 + leftStride * 0.025;
+            mesh.userData.rightArm.rotation.x = -0.03 + rightStride * 0.025;
+        } else {
+            mesh.userData.leftLegGroup.rotation.x = legAngle;
+            mesh.userData.rightLegGroup.rotation.x = -legAngle;
+        }
         
         const armAngle = Math.sin(mesh.userData.walkPhase + Math.PI) * 0.3;
-        mesh.userData.leftArm.rotation.x = armAngle;
-        mesh.userData.rightArm.rotation.x = -armAngle;
+        if (!mesh.userData.heavyRobot) {
+            mesh.userData.leftArm.rotation.x = armAngle;
+            mesh.userData.rightArm.rotation.x = -armAngle;
+        }
         
         const bodyFloat = Math.abs(Math.sin(mesh.userData.walkPhase * 2)) * 0.02;
-        mesh.userData.body.position.y = 0.9 + bodyFloat;
-        mesh.userData.head.position.y = 1.4 + bodyFloat;
-        mesh.userData.leftArm.position.y = 0.9 + bodyFloat;
-        mesh.userData.rightArm.position.y = 0.9 + bodyFloat;
-        mesh.userData.leftEye.position.y = 1.42 + bodyFloat;
-        mesh.userData.rightEye.position.y = 1.42 + bodyFloat;
+        mesh.userData.body.position.y = (mesh.userData.baseBodyY || 0.9) + bodyFloat;
+        mesh.userData.head.position.y = (mesh.userData.baseHeadY || 1.4) + bodyFloat;
+        mesh.userData.leftArm.position.y = (mesh.userData.baseLeftArmY || 0.9) + bodyFloat;
+        mesh.userData.rightArm.position.y = (mesh.userData.baseRightArmY || 0.9) + bodyFloat;
+        mesh.userData.leftEye.position.y = (mesh.userData.baseLeftEyeY || 1.42) + bodyFloat;
+        mesh.userData.rightEye.position.y = (mesh.userData.baseRightEyeY || 1.42) + bodyFloat;
     }
     // 独轮炮车动画
     else if (mesh.userData.wheelbarrow) {
@@ -724,9 +1088,12 @@ function spawnGorillaBossEntity(maxHp, speed = 0.02, hpBarY = 4.2) {
     const boss = {
         mesh: gorillaBoss,
         pathIdx: 0,
+        pathPoints: pathPoints,
         health: maxHp,
         maxHealth: maxHp,
         isBoss: true,
+        modelType: 'gorillaBoss',
+        enemyCategory: 'boss',
         speed: speed,
         hpBar: hpBarContainer.userData.hpBar,
         hpBarContainer: hpBarContainer
@@ -750,10 +1117,52 @@ function spawnHelicopterBossEntity(maxHp, speed = 0.02, hpBarY = 4.4) {
     const boss = {
         mesh: helicopterBoss,
         pathIdx: 0,
+        pathPoints: pathPoints,
         health: maxHp,
         maxHealth: maxHp,
         isBoss: true,
         isFlyingBoss: true,
+        modelType: 'helicopterBoss',
+        enemyCategory: 'boss',
+        flightBaseY: 2.5,
+        speed: speed,
+        hpBar: hpBarContainer.userData.hpBar,
+        hpBarContainer: hpBarContainer
+    };
+
+    enemies.push(boss);
+    return boss;
+}
+
+function spawnImportedChopperBossEntity(maxHp, speed = 0.02, hpBarY = 4.4) {
+    const chopperBoss = createImportedChopperModel(THREE);
+    const rotorRefs = { mainRotor: null, tailRotor: null };
+    chopperBoss.traverse(obj => {
+        if (!obj.userData) return;
+        if (obj.userData.mainRotor && !rotorRefs.mainRotor) rotorRefs.mainRotor = obj.userData.mainRotor;
+        if (obj.userData.tailRotor && !rotorRefs.tailRotor) rotorRefs.tailRotor = obj.userData.tailRotor;
+    });
+    chopperBoss.userData.mainRotor = rotorRefs.mainRotor;
+    chopperBoss.userData.tailRotor = rotorRefs.tailRotor;
+    chopperBoss.position.copy(pathPoints[0]);
+    chopperBoss.position.y = 2.5;
+    chopperBoss.scale.setScalar(0.95);
+    scene.add(chopperBoss);
+
+    const hpBarContainer = new THREE.Group();
+    chopperBoss.add(hpBarContainer);
+    addHpBarToBoss(hpBarContainer, maxHp, hpBarY);
+
+    const boss = {
+        mesh: chopperBoss,
+        pathIdx: 0,
+        pathPoints: pathPoints,
+        health: maxHp,
+        maxHealth: maxHp,
+        isBoss: true,
+        isFlyingBoss: true,
+        modelType: 'helicopterBoss',
+        enemyCategory: 'boss',
         flightBaseY: 2.5,
         speed: speed,
         hpBar: hpBarContainer.userData.hpBar,
@@ -766,6 +1175,13 @@ function spawnHelicopterBossEntity(maxHp, speed = 0.02, hpBarY = 4.4) {
 
 function spawnFirstBoss() {
     firstBossSpawned = true;
+
+    // 第二关：中途出现 Chopper Boss
+    if (currentLevel === 2) {
+        const maxHp = LEVELS[currentLevel].bossHp;
+        spawnImportedChopperBossEntity(Math.round(maxHp * 0.55), 0.02, 4.4);
+        return;
+    }
     
     // 第三关：第一个 Boss（钢铁大猩猩）在小兵出一半时出场
     if (currentLevel === 3) {
@@ -775,21 +1191,40 @@ function spawnFirstBoss() {
     }
 }
 
-function spawnBoss() {
+function spawnBoss(forceTankLevel = null, options = {}) {
     bossSpawned = true;
     
-    // 第三关：第二个 Boss（直升机）在所有小兵出完后出场
-    if (currentLevel === 3) {
+    // 第三关：最终 Boss 为 Alpha 猩猩，后方跟随两辆第二关坦克 Boss
+    if (currentLevel === 3 && forceTankLevel === null) {
         const maxHp = LEVELS[currentLevel].bossHp;
-        spawnHelicopterBossEntity(maxHp / 2, 0.018, 4.4);
+        spawnGorillaBossEntity(maxHp, 0.018, 4.4);
+
+        const start = pathPoints[0];
+        const next = pathPoints[1] || start;
+        const forward = new THREE.Vector3().subVectors(next, start).normalize();
+        const lateral = new THREE.Vector3(-forward.z, 0, forward.x);
+        const escortHp = Math.round(LEVELS[2].bossHp * 0.55);
+        spawnBoss(2, {
+            maxHp: escortHp,
+            speed: 0.013,
+            hpBarY: 3.5,
+            positionOffset: forward.clone().multiplyScalar(-2.8).add(lateral.clone().multiplyScalar(-1.4))
+        });
+        spawnBoss(2, {
+            maxHp: escortHp,
+            speed: 0.013,
+            hpBarY: 3.5,
+            positionOffset: forward.clone().multiplyScalar(-5.2).add(lateral.clone().multiplyScalar(1.4))
+        });
         return;
     }
     
     // 第一、二关：传统坦克 Boss
+    const tankLevel = forceTankLevel || currentLevel;
     const bossGroup = new THREE.Group();
     const matMain = new THREE.MeshPhongMaterial({ 
-        color: currentLevel === 1 ? 0x8b3a3a : 0x1e272e, 
-        emissive: currentLevel === 1 ? 0x331111 : 0x000000 
+        color: tankLevel === 1 ? 0x8b3a3a : 0x1e272e, 
+        emissive: tankLevel === 1 ? 0x331111 : 0x000000 
     });
     const matGun = new THREE.MeshPhongMaterial({ 
         color: 0x4a4a4a, 
@@ -830,7 +1265,7 @@ function spawnBoss() {
     tower.add(turretTop);
     
     // 炮管设计
-    if (currentLevel === 2) { 
+    if (tankLevel === 2) { 
         // 第二关：双联装炮管
         const barrelMat = new THREE.MeshPhongMaterial({ color: 0x3d3d3d, specular: 0x555555, shininess: 60 });
         const createDoubleBarrel = (xOffset) => {
@@ -901,9 +1336,13 @@ function spawnBoss() {
     bossGroup.userData = { tower };
     
     bossGroup.position.copy(pathPoints[0]);
+    if (options.positionOffset) {
+        bossGroup.position.add(options.positionOffset);
+    }
     
     // 血条系统 - 2D UI 血条（始终面向屏幕，水平显示）
-    const maxHp = LEVELS[currentLevel].bossHp;
+    const maxHp = options.maxHp || LEVELS[tankLevel].bossHp;
+    const hpBarY = options.hpBarY || 3.5;
     
     // 第一、二关：单个 Boss
     // 创建一个容器用于血条，使其始终面向摄像机
@@ -925,7 +1364,7 @@ function spawnBoss() {
     const barBgMat = new THREE.SpriteMaterial({ map: barBgTexture, transparent: true });
     const barBg = new THREE.Sprite(barBgMat);
     barBg.scale.set(4, 0.6, 1);
-    barBg.position.set(0, 3.5, 0);
+    barBg.position.set(0, hpBarY, 0);
     hpBarContainer.add(barBg);
     
     // 血条前景（颜色根据血量变化）- 使用 Sprite
@@ -940,7 +1379,7 @@ function spawnBoss() {
     const barMat = new THREE.SpriteMaterial({ map: barTexture, transparent: true });
     const bar = new THREE.Sprite(barMat);
     bar.scale.set(3.8, 0.55, 1);
-    bar.position.set(0, 3.5, 0.01);
+    bar.position.set(0, hpBarY, 0.01);
     bar.userData = { 
         maxHp: maxHp,
         canvas: barCanvas,
@@ -955,17 +1394,18 @@ function spawnBoss() {
     const e = { 
         mesh: bossGroup, 
         pathIdx: 0, 
+        pathPoints: pathPoints,
         health: maxHp, 
         maxHealth: maxHp, 
         isBoss: true, 
-        speed: 0.015, 
+        modelType: 'tankBoss',
+        enemyCategory: 'boss',
+        speed: options.speed || 0.015, 
         hpBar: bar,
         hpBarContainer: hpBarContainer
     };
     scene.add(bossGroup);
     enemies.push(e);
-    spawnHelicopterBossEntity(maxHp, 0.018, 4.4);
-    bossSpawned = true;
 }
 
 // 辅助函数：为 Boss 添加血条
@@ -1406,4 +1846,3 @@ function createWheelbarrowModel() {
 
 // ==================== UI 更新 ====================
 // ==================== 模型展示馆 ====================
-

@@ -5,8 +5,8 @@
 var PRICES = {
     1: getWeaponConfig(1).price,
     2: getWeaponConfig(2).price,
-    3: getWeaponConfig(3).price
+    3: getWeaponConfig(3).price,
+    4: getWeaponConfig(4).price
 };
 
 var RAIL_TARGET_RANGE = getWeaponConfig(2).range;
-

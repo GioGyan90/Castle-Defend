@@ -79,26 +79,7 @@ body {
 }
 
 /* 底部武器库 - 紧凑型 */
-#bottom-nav {
-    position: fixed; 
-    bottom: 0; 
-    left: 0; 
-    width: 100%;
-    background: rgba(255, 255, 255, 0.95); 
-    padding: 10px;
-    display: flex; 
-    flex-direction: column; 
-    gap: 8px;
-    z-index: 100; 
-    border-top: 3px solid #f1c40f;
-}
-
-.shop-row { 
-    display: flex; 
-    gap: 6px; 
-}
-
-.weapon-btn {
+.weapon-btn:not(#btn1):not(#btn2):not(#btn3):not(#btn4) {
     flex: 1; 
     padding: 8px 0; 
     border: none; 
@@ -112,43 +93,158 @@ body {
     transition: transform 0.1s;
 }
 
-.weapon-btn:active {
+.weapon-btn:not(#btn1):not(#btn2):not(#btn3):not(#btn4):active {
     transform: translateY(2px);
     box-shadow: 0 1px 0 rgba(0,0,0,0.2);
 }
 
-.weapon-btn:disabled { 
+.weapon-btn:not(#btn1):not(#btn2):not(#btn3):not(#btn4):disabled {
     background: #95a5a6 !important; 
     opacity: 0.6; 
     box-shadow: none; 
     cursor: not-allowed;
 }
 
-#btn1 { background: #26de81; } 
-#btn2 { background: #45aaf2; } 
-#btn3 { background: #a55eea; }
+#bottom-nav {
+    position: fixed; 
+    bottom: max(14px, env(safe-area-inset-bottom)); 
+    left: 50%; 
+    transform: translateX(-50%);
+    width: min(488px, calc(100vw - 20px));
+    background: rgba(12, 20, 32, 0.78); 
+    padding: 8px 8px;
+    display: flex; 
+    flex-direction: row; 
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    z-index: 100; 
+    border: 1px solid rgba(41, 242, 255, 0.38);
+    border-radius: 999px;
+    box-shadow: 0 14px 36px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.22);
+    backdrop-filter: blur(10px);
+}
+
+.shop-row { 
+    display: flex; 
+    gap: 8px; 
+    align-items: center;
+}
+
+#bottom-nav .weapon-btn {
+    position: relative;
+    flex: 0 0 auto; 
+    width: clamp(52px, 14.5vw, 64px);
+    height: clamp(52px, 14.5vw, 64px);
+    padding: 0; 
+    border: 2px solid rgba(255,255,255,0.56); 
+    border-radius: 50%; 
+    background: radial-gradient(circle at 45% 34%, rgba(255,255,255,0.95), rgba(187,232,238,0.78) 45%, rgba(12,40,50,0.9) 100%);
+    color: white; 
+    font-weight: bold; 
+    font-size: 12px; 
+    text-align: center;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.28);
+    cursor: pointer;
+    overflow: visible;
+    transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s, opacity 0.12s;
+}
+
+#bottom-nav .weapon-btn:active {
+    transform: translateY(2px) scale(0.98);
+}
+
+#bottom-nav .weapon-btn.selected {
+    border-color: #f1c40f;
+    box-shadow: 0 0 0 4px rgba(241,196,15,0.24), 0 10px 20px rgba(0,0,0,0.32);
+}
+
+.weapon-preview {
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 42%, rgba(255,255,255,0.96), rgba(158,219,230,0.72) 58%, rgba(20,44,54,0.94) 100%);
+}
+
+.weapon-preview canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+#bottom-nav .weapon-btn:disabled { 
+    filter: grayscale(0.75);
+    opacity: 0.48; 
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+#bottom-nav .weapon-btn.cooling {
+    filter: grayscale(0.3);
+    opacity: 0.88;
+}
+
+.cooldown-mask {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(12, 16, 24, 0.72);
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 900;
+    text-shadow: 0 2px 5px rgba(0,0,0,0.6);
+}
+
+#bottom-nav .weapon-btn.cooling .cooldown-mask {
+    display: flex;
+}
 
 .price-tag { 
-    display: block; 
-    font-size: 10px; 
-    opacity: 0.9; 
+    position: absolute;
+    right: -4px;
+    bottom: -5px;
+    min-width: 24px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #f1c40f;
+    color: #152235;
+    border: 2px solid rgba(255,255,255,0.85);
+    font-size: 11px;
+    line-height: 18px;
+    font-weight: 900;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.22);
 }
 
 #btnSell { 
-    width: 100%; 
-    padding: 8px; 
-    background: #eb4d4b; 
+    flex: 0 0 auto;
+    width: clamp(50px, 13.8vw, 58px);
+    height: clamp(50px, 13.8vw, 58px);
+    padding: 0; 
+    background: linear-gradient(160deg, #ff5e57, #d63031); 
     color: white; 
-    border: none; 
-    border-radius: 8px; 
-    font-weight: bold; 
-    font-size: 13px;
+    border: 2px solid rgba(255,255,255,0.72); 
+    border-radius: 50%; 
+    font-weight: 900; 
+    font-size: 30px;
+    line-height: clamp(46px, 12.8vw, 54px);
     cursor: pointer;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.28);
+    transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
 }
 
 #btnSell.active { 
-    background: #ff7979; 
-    border: 2px solid white; 
+    background: linear-gradient(160deg, #ff8a80, #e74c3c); 
+    box-shadow: 0 0 0 4px rgba(255,94,87,0.26), 0 10px 20px rgba(0,0,0,0.32);
+}
+
+#btnSell:active {
+    transform: translateY(2px) scale(0.98);
 }
 
 /* 覆盖层 */
@@ -446,6 +542,60 @@ body.game-dimmed #gameCanvas {
     filter: brightness(0.72);
 }
 
+.boss-warning-banner {
+    position: fixed;
+    left: 0;
+    top: 38%;
+    z-index: 180;
+    width: 100vw;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateX(-130%) skewX(-12deg);
+    color: #ffffff;
+    font-size: clamp(44px, 12vw, 118px);
+    font-weight: 1000;
+    line-height: 1;
+    letter-spacing: 0;
+    text-align: center;
+    white-space: nowrap;
+    text-transform: uppercase;
+    text-shadow:
+        0 0 8px rgba(255, 255, 255, 0.95),
+        0 0 18px rgba(255, 88, 208, 0.95),
+        0 0 34px rgba(255, 36, 176, 0.82),
+        0 8px 0 rgba(37, 8, 32, 0.78);
+    -webkit-text-stroke: 2px #ff8add;
+}
+
+.boss-warning-banner.boss-warning-run {
+    animation: bossWarningSweep 1.8s forwards;
+}
+
+@keyframes bossWarningSweep {
+    0% {
+        opacity: 0;
+        transform: translateX(-130%) skewX(-12deg) scale(0.96);
+        animation-timing-function: cubic-bezier(0.16, 0.84, 0.26, 1);
+    }
+    10% {
+        opacity: 1;
+    }
+    22% {
+        opacity: 1;
+        transform: translateX(0) skewX(-8deg) scale(1.04);
+        animation-timing-function: cubic-bezier(0.34, 0, 0.66, 1);
+    }
+    78% {
+        opacity: 1;
+        transform: translateX(0) skewX(-8deg) scale(1.04);
+        animation-timing-function: cubic-bezier(0.7, 0, 0.84, 0.16);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(135%) skewX(-12deg) scale(0.98);
+    }
+}
+
 .gallery-overlay {
     position: fixed;
     inset: 0;
@@ -508,7 +658,7 @@ body.game-dimmed #gameCanvas {
     background: #ffffff;
     border: 1px solid #d7dee8;
     border-radius: 8px;
-    min-height: 158px;
+    min-height: 218px;
     padding: 8px;
     display: flex;
     flex-direction: column;
@@ -527,11 +677,42 @@ body.game-dimmed #gameCanvas {
     font-size: 13px;
     font-weight: 800;
     line-height: 1.2;
-    min-height: 32px;
+    min-height: 26px;
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
+}
+
+.model-category {
+    align-self: center;
+    min-width: 52px;
+    border-radius: 999px;
+    background: rgba(22, 33, 62, 0.1);
+    color: #41516e;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 20px;
+    padding: 0 8px;
+    text-align: center;
+}
+
+.gallery-audio-btn {
+    border: none;
+    border-radius: 8px;
+    background: #16213e;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 800;
+    min-height: 32px;
+    padding: 7px 8px;
+    cursor: pointer;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.18);
+}
+
+.gallery-audio-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.18);
 }
 
 /* 排行榜样式 */

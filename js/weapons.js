@@ -251,7 +251,7 @@ function createWeaponModel(type) {
         seat.position.set(0, 0.68, -0.68);
         turretGroup.add(pilot);
         turretGroup.add(seat);
-    } else {
+    } else if (type === 3) {
         // 特斯拉线圈
         const teslaDarkMat = new THREE.MeshPhongMaterial({
             color: 0x2b2732,
@@ -381,6 +381,92 @@ function createWeaponModel(type) {
         g.userData.teslaChargeSegments = chargeSegments;
         
         // 击杀数数字标签机制已移除
+    } else if (type === 4) {
+        const baseMat = new THREE.MeshPhongMaterial({
+            color: 0x22313f,
+            emissive: 0x06121c,
+            emissiveIntensity: 0.22,
+            shininess: 55,
+            flatShading: true
+        });
+        const yellowMat = new THREE.MeshPhongMaterial({
+            color: 0xf7d94c,
+            emissive: 0x5d4300,
+            emissiveIntensity: 0.24,
+            shininess: 70,
+            flatShading: true
+        });
+        const redMat = new THREE.MeshPhongMaterial({
+            color: 0xff5e57,
+            emissive: 0x5f120c,
+            emissiveIntensity: 0.3,
+            shininess: 50,
+            flatShading: true
+        });
+        const whiteMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.86,
+            side: THREE.DoubleSide
+        });
+
+        const target = new THREE.Mesh(
+            new THREE.RingGeometry(0.54, 0.64, 6),
+            whiteMat
+        );
+        target.rotation.x = -Math.PI / 2;
+        target.position.y = 0.02;
+        g.add(target);
+
+        const targetLineA = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.035, 0.08), yellowMat);
+        const targetLineB = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.035, 1.45), yellowMat);
+        targetLineA.position.y = 0.05;
+        targetLineB.position.y = 0.055;
+        g.add(targetLineA, targetLineB);
+
+        const bomb = new THREE.Group();
+        const body = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.17, 0.22, 0.9, 14),
+            baseMat
+        );
+        body.position.y = 0.92;
+        const nose = new THREE.Mesh(
+            new THREE.ConeGeometry(0.18, 0.34, 14),
+            redMat
+        );
+        nose.position.y = 1.54;
+        const tail = new THREE.Mesh(
+            new THREE.ConeGeometry(0.2, 0.28, 14),
+            yellowMat
+        );
+        tail.rotation.x = Math.PI;
+        tail.position.y = 0.28;
+        bomb.add(body, nose, tail);
+
+        for (let i = 0; i < 4; i++) {
+            const fin = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.28), redMat);
+            fin.position.set(Math.sin(i * Math.PI / 2) * 0.2, 0.38, Math.cos(i * Math.PI / 2) * 0.2);
+            fin.rotation.y = i * Math.PI / 2;
+            bomb.add(fin);
+        }
+
+        bomb.rotation.z = -0.2;
+        bomb.position.set(0.1, 0.05, 0.05);
+        g.add(bomb);
+
+        const blast = new THREE.Mesh(
+            new THREE.OctahedronGeometry(0.32),
+            new THREE.MeshPhongMaterial({
+                color: 0xffaa00,
+                emissive: 0xff4d00,
+                emissiveIntensity: 0.35,
+                shininess: 25,
+                flatShading: true
+            })
+        );
+        blast.position.set(-0.42, 0.24, 0.38);
+        blast.scale.set(1.15, 0.55, 1.15);
+        g.add(blast);
     }
     return g;
 }

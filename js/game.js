@@ -4,24 +4,7 @@
  */
 
 // ==================== 音频系统 ====================
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let isMuted = false;
-
-function playTone(freq, type, duration, vol = 0.05) {
-    if (isMuted) return;
-    try {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-    } catch (e) {}
-}
+// Audio helpers live in js/game_audio.js.
 
 // ==================== 游戏配置 ====================
 // Game configuration lives in js/config.js.
@@ -29,19 +12,36 @@ function playTone(freq, type, duration, vol = 0.05) {
 let currentLevel = 1;
 let score, lives, spawnedCount, gameOver, gameStarted = false, bossSpawned = false, firstBossSpawned = false;
 let selectedWeaponType = null, isSellMode = false;
+let selectedTacticalType = null;
 let isDebugMode = false;
 let isPaused = false;
+let levelPortalSpawnCount = 0;
 const enemies = [], bullets = [], weapons = [], particles = [], damageTexts = [], slots = [];
+const airstrikeBombs = [], airstrikeMarkers = [];
 let pathPoints = [];
 let alternateEnemyPathPoints = [];
 const weaponDamageStats = [];
 let weaponSerial = 0;
+let airstrikeSerial = 0;
+let airstrikeCooldownUntil = 0;
 let levelStartTime = 0; // 关卡开始时间用于计算通关时间
 
 const WEAPON_DISPLAY_NAMES = {
     1: getWeaponConfig(1).name,
     2: getWeaponConfig(2).name,
-    3: getWeaponConfig(3).name
+    3: getWeaponConfig(3).name,
+    4: getWeaponConfig(4).name
+};
+
+const LEVEL_PORTAL_EVENTS = {
+    2: [
+        { modelType: 'portalA', threshold: 0.38, path: 'main' }
+    ],
+    3: [
+        { modelType: 'portalA', threshold: 0.30, path: 'main' },
+        { modelType: 'portalA', threshold: 0.55, path: 'alternate' },
+        { modelType: 'portalB', threshold: 0.72, path: 'main' }
+    ]
 };
 
 // ==================== Three.js 场景设置 ====================
@@ -62,6 +62,7 @@ const camera = new THREE.PerspectiveCamera(50, initialViewport.width / initialVi
 // 存储摄像机基础位置用于震动效果
 let baseCameraY = 24;
 let baseCameraZ = 18;
+let baseCameraLookAtZ = 0;
 
 function getCurrentMapExtent() {
     const cfg = typeof LEVELS !== 'undefined' ? LEVELS[currentLevel] : null;
@@ -82,11 +83,13 @@ function adjustCamera() {
     const viewport = getViewportSize();
     const aspect = viewport.width / viewport.height;
     const mapExtent = getCurrentMapExtent();
-    const camDist = Math.max(aspect < 1 ? 30 : 26, mapExtent * (aspect < 1 ? 1.75 : 1.35));
+    const isPortrait = aspect < 1;
+    const camDist = Math.max(isPortrait ? 52 : 28, mapExtent * (isPortrait ? 3.1 : 1.45));
     baseCameraY = camDist;
-    baseCameraZ = camDist * 0.75;
+    baseCameraZ = camDist * (isPortrait ? 0.82 : 0.75);
+    baseCameraLookAtZ = isPortrait ? 4 : 0;
     camera.position.set(0, baseCameraY, baseCameraZ);
-    camera.lookAt(0, 0, 0);
+    camera.lookAt(0, 0, baseCameraLookAtZ);
 }
 adjustCamera();
 
@@ -153,7 +156,9 @@ function buildMap() {
 
 // ==================== 游戏流程控制 ====================
 function startGame(debug = false) {
-    if (!isMuted) audioCtx.resume();
+    ensureAudioReady();
+    resetEnemyMovementSounds();
+    cancelBossIncomingBanner();
     setGameDimmed(false);
     isDebugMode = debug;
     isPaused = false;
@@ -169,6 +174,9 @@ function startGame(debug = false) {
     gameOver = false;
     bossSpawned = false;
     firstBossSpawned = false;
+    levelPortalSpawnCount = 0;
+    selectedTacticalType = null;
+    airstrikeCooldownUntil = 0;
     levelStartTime = Date.now(); // 记录关卡开始时间
     updateUI();
     gameStarted = true;
@@ -178,6 +186,8 @@ function startGame(debug = false) {
 
 function clearRunObjects() {
     setGameDimmed(false);
+    resetEnemyMovementSounds();
+    cancelBossIncomingBanner();
     enemies.forEach(e => scene.remove(e.mesh));
     enemies.length = 0;
     bullets.forEach(b => {
@@ -191,11 +201,21 @@ function clearRunObjects() {
     particles.length = 0;
     damageTexts.forEach(d => scene.remove(d.sprite));
     damageTexts.length = 0;
+    airstrikeBombs.forEach(b => scene.remove(b.mesh));
+    airstrikeBombs.length = 0;
+    airstrikeMarkers.forEach(m => scene.remove(m.mesh));
+    airstrikeMarkers.length = 0;
     slots.length = 0;
     weaponDamageStats.length = 0;
     weaponSerial = 0;
+    airstrikeSerial = 0;
+    airstrikeCooldownUntil = 0;
+    levelPortalSpawnCount = 0;
     selectedWeaponType = null;
+    selectedTacticalType = null;
     isSellMode = false;
+    clearWeaponSelectionUi();
+    document.getElementById('btnSell').classList.remove('active');
 }
 
 function showPauseMenu() {
@@ -245,7 +265,7 @@ function toggleSound() {
     if (isMuted && audioCtx.state === 'running') {
         audioCtx.suspend();
     } else if (!isMuted) {
-        audioCtx.resume();
+        ensureAudioReady();
         playTone(520, 'sine', 0.12, 0.04);
     }
     updateSoundButton();
@@ -292,14 +312,59 @@ function resetUIForLevel() {
 }
 
 // ==================== 武器系统 ====================
+function clearWeaponSelectionUi() {
+    document.querySelectorAll('#bottom-nav .weapon-btn').forEach(b => b.classList.remove('selected'));
+}
+
+function initWeaponButtonPreviews() {
+    [1, 2, 3, 4].forEach(type => {
+        const holder = document.getElementById('preview' + type);
+        if (!holder || holder.querySelector('canvas')) return;
+
+        const previewScene = new THREE.Scene();
+        const previewCamera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+        previewCamera.position.set(2.0, 1.85, 2.85);
+        previewCamera.lookAt(0, 0.45, 0);
+        previewScene.add(new THREE.AmbientLight(0xffffff, 0.88));
+
+        const previewLight = new THREE.DirectionalLight(0xffffff, 1.35);
+        previewLight.position.set(2, 4, 3);
+        previewScene.add(previewLight);
+
+        const model = createWeaponModel(type);
+        const box = new THREE.Box3().setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        model.position.sub(center);
+        const previewScale = type === 3 ? 2.35 : (type === 4 ? 2.45 : 2.12);
+        model.scale.multiplyScalar(previewScale / maxDim);
+        model.position.y += type === 3 ? 0.55 : (type === 4 ? 0.48 : 0.42);
+        model.rotation.y = -0.45;
+        model.rotation.x = -0.08;
+        previewScene.add(model);
+
+        const previewRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        previewRenderer.setSize(56, 56, false);
+        holder.appendChild(previewRenderer.domElement);
+        previewRenderer.render(previewScene, previewCamera);
+    });
+}
+
 function buyWeapon(type) {
+    if (type === 4) {
+        buyAirstrike();
+        return;
+    }
     if (currentLevel === 1 && type === 3) return;
     if (gameOver || isPaused || score < PRICES[type]) return;
     isSellMode = false;
+    selectedTacticalType = null;
     document.getElementById('btnSell').classList.remove('active');
     selectedWeaponType = type;
-    document.querySelectorAll('.weapon-btn').forEach(b => b.style.border = "none");
-    document.getElementById('btn' + type).style.border = "2px solid white";
+    clearWeaponSelectionUi();
+    document.getElementById('btn' + type).classList.add('selected');
     slots.forEach(s => {
         if (!s.userData.occupied) {
             s.userData.ring.material.color.set(0xffffff);
@@ -308,11 +373,30 @@ function buyWeapon(type) {
     });
 }
 
+function getAirstrikeCooldownRemaining(time = performance.now()) {
+    return Math.max(0, airstrikeCooldownUntil - time);
+}
+
+function buyAirstrike() {
+    const config = getWeaponConfig(4);
+    if (currentLevel < 3 || gameOver || isPaused || score < config.price || getAirstrikeCooldownRemaining() > 0) return;
+
+    isSellMode = false;
+    selectedWeaponType = null;
+    selectedTacticalType = 'airstrike';
+    document.getElementById('btnSell').classList.remove('active');
+    clearWeaponSelectionUi();
+    const btn = document.getElementById('btn4');
+    if (btn) btn.classList.add('selected');
+    slots.forEach(s => s.userData.ring.material.opacity = 0);
+}
+
 function toggleSellMode() {
     if (gameOver || isPaused) return;
     isSellMode = !isSellMode;
     selectedWeaponType = null;
-    document.querySelectorAll('.weapon-btn').forEach(b => b.style.border = "none");
+    selectedTacticalType = null;
+    clearWeaponSelectionUi();
     document.getElementById('btnSell').classList.toggle('active', isSellMode);
     slots.forEach(s => {
         if (isSellMode && s.userData.occupied) {
@@ -324,8 +408,232 @@ function toggleSellMode() {
     });
 }
 
+function getRoadWidth() {
+    const cfg = typeof LEVELS !== 'undefined' ? LEVELS[currentLevel] : null;
+    return (cfg && cfg.roadWidth) || (typeof MAP_ROAD_WIDTH !== 'undefined' ? MAP_ROAD_WIDTH : 3.5);
+}
+
+function getPlayableRoadPaths() {
+    const paths = [];
+    if (pathPoints && pathPoints.length > 1) paths.push(pathPoints);
+    if (alternateEnemyPathPoints && alternateEnemyPathPoints.length > 1) paths.push(alternateEnemyPathPoints);
+    return paths;
+}
+
+function getClosestPointOnRoad(point) {
+    let best = null;
+    getPlayableRoadPaths().forEach(points => {
+        for (let i = 0; i < points.length - 1; i++) {
+            const a = points[i];
+            const b = points[i + 1];
+            const segment = new THREE.Vector3().subVectors(b, a);
+            const segmentLengthSq = segment.lengthSq();
+            if (segmentLengthSq <= 0.0001) continue;
+            const t = THREE.MathUtils.clamp(new THREE.Vector3().subVectors(point, a).dot(segment) / segmentLengthSq, 0, 1);
+            const closest = a.clone().add(segment.multiplyScalar(t));
+            closest.y = 0.08;
+            const distance = closest.distanceTo(point);
+            if (!best || distance < best.distance) {
+                best = {
+                    position: closest,
+                    direction: new THREE.Vector3().subVectors(b, a).normalize(),
+                    distance
+                };
+            }
+        }
+    });
+    return best;
+}
+
+function getAirstrikeTargetFromScreen(clientX, clientY) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
+    const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const point = new THREE.Vector3();
+    if (!raycaster.ray.intersectPlane(groundPlane, point)) return null;
+    const target = getClosestPointOnRoad(point);
+    if (!target || target.distance > getRoadWidth() * 0.68) return null;
+    return target;
+}
+
+function createAirstrikeMarker(center, direction, config, startTime) {
+    const marker = new THREE.Mesh(
+        new THREE.BoxGeometry(config.width, 0.035, config.length),
+        new THREE.MeshBasicMaterial({
+            color: 0xffef7a,
+            transparent: true,
+            opacity: 0.34,
+            depthWrite: false
+        })
+    );
+    marker.position.copy(center);
+    marker.position.y = 0.07;
+    marker.rotation.y = Math.atan2(direction.x, direction.z);
+    scene.add(marker);
+    airstrikeMarkers.push({
+        mesh: marker,
+        startTime,
+        endTime: startTime + config.rows * 135 + 1100
+    });
+}
+
+function createAirstrikeBombMesh() {
+    const group = new THREE.Group();
+    const bodyMat = new THREE.MeshPhongMaterial({
+        color: 0x1f2d3a,
+        emissive: 0x07111a,
+        emissiveIntensity: 0.18,
+        flatShading: true
+    });
+    const tipMat = new THREE.MeshPhongMaterial({
+        color: 0xff5e57,
+        emissive: 0x5a0b08,
+        emissiveIntensity: 0.25,
+        flatShading: true
+    });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.82, 12), bodyMat);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.3, 12), tipMat);
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.24, 12), tipMat);
+    body.position.y = 0.45;
+    tip.position.y = 1.0;
+    tail.rotation.x = Math.PI;
+    tail.position.y = -0.06;
+    group.add(body, tip, tail);
+    return group;
+}
+
+function deployAirstrike(target) {
+    const config = getWeaponConfig(4);
+    const now = performance.now();
+    if (currentLevel < 3 || score < config.price || getAirstrikeCooldownRemaining(now) > 0) return;
+
+    score -= config.price;
+    airstrikeCooldownUntil = now + config.cooldownMs;
+    selectedTacticalType = null;
+    clearWeaponSelectionUi();
+
+    const attackId = ++airstrikeSerial;
+    const damageStat = {
+        id: `air-${attackId}`,
+        type: 4,
+        label: `${WEAPON_DISPLAY_NAMES[4]} #${attackId}`,
+        totalDamage: 0
+    };
+    weaponDamageStats.push(damageStat);
+
+    const direction = target.direction.clone().normalize();
+    const lateral = new THREE.Vector3(-direction.z, 0, direction.x).normalize();
+    const airstrike = {
+        id: attackId,
+        center: target.position.clone(),
+        direction,
+        lateral,
+        length: config.length,
+        width: config.width,
+        damage: config.damage,
+        rows: config.rows,
+        damagedEnemies: new Set(),
+        damageStat
+    };
+
+    createAirstrikeMarker(airstrike.center, direction, config, now);
+    for (let row = 0; row < config.rows; row++) {
+        const rowRatio = config.rows <= 1 ? 0.5 : row / (config.rows - 1);
+        const along = -config.length / 2 + rowRatio * config.length;
+        [-0.34, 0.34].forEach((lane, laneIndex) => {
+            const targetPos = airstrike.center.clone()
+                .add(direction.clone().multiplyScalar(along))
+                .add(lateral.clone().multiplyScalar(lane * config.width));
+            targetPos.y = 0.1;
+            const mesh = createAirstrikeBombMesh();
+            mesh.position.copy(targetPos).add(new THREE.Vector3(0, 7.5, 0)).add(direction.clone().multiplyScalar(1.8));
+            airstrikeBombs.push({
+                mesh,
+                airstrike,
+                targetPosition: targetPos,
+                rowAlong: along,
+                startPosition: mesh.position.clone(),
+                launchTime: now + row * 135 + laneIndex * 46,
+                impactTime: now + row * 135 + laneIndex * 46 + 620,
+                added: false,
+                soundPlayed: false
+            });
+        });
+    }
+
+    if (typeof playAirstrikeDropSound === 'function') playAirstrikeDropSound();
+    updateUI();
+}
+
+function applyAirstrikeDamage(bomb) {
+    const airstrike = bomb.airstrike;
+    const sliceHalfLength = Math.max(0.7, airstrike.length / airstrike.rows * 0.62);
+    enemies.slice().forEach(enemy => {
+        if (!enemy || enemy.isDead || airstrike.damagedEnemies.has(enemy)) return;
+        const relative = enemy.mesh.position.clone().sub(airstrike.center);
+        const along = relative.dot(airstrike.direction);
+        const side = relative.dot(airstrike.lateral);
+        if (Math.abs(side) <= airstrike.width / 2 && Math.abs(along - bomb.rowAlong) <= sliceHalfLength) {
+            airstrike.damagedEnemies.add(enemy);
+            damageEnemy(enemy, airstrike.damage, {
+                ownerWeapon: { type: 4, damageStat: airstrike.damageStat },
+                isCrit: false
+            }, true);
+        }
+    });
+}
+
+function updateAirstrikeBombs(time) {
+    for (let i = airstrikeMarkers.length - 1; i >= 0; i--) {
+        const marker = airstrikeMarkers[i];
+        const life = Math.max(0, marker.endTime - time);
+        const total = Math.max(1, marker.endTime - marker.startTime);
+        marker.mesh.material.opacity = 0.34 * THREE.MathUtils.clamp(life / total, 0, 1);
+        if (time >= marker.endTime) {
+            scene.remove(marker.mesh);
+            airstrikeMarkers.splice(i, 1);
+        }
+    }
+
+    for (let i = airstrikeBombs.length - 1; i >= 0; i--) {
+        const bomb = airstrikeBombs[i];
+        if (time < bomb.launchTime) continue;
+        if (!bomb.added) {
+            scene.add(bomb.mesh);
+            bomb.added = true;
+        }
+        const progress = THREE.MathUtils.clamp((time - bomb.launchTime) / (bomb.impactTime - bomb.launchTime), 0, 1);
+        const eased = 1 - Math.pow(1 - progress, 2.4);
+        bomb.mesh.position.lerpVectors(bomb.startPosition, bomb.targetPosition, eased);
+        bomb.mesh.rotation.x += 0.22;
+        bomb.mesh.rotation.z += 0.08;
+        if (progress >= 1) {
+            scene.remove(bomb.mesh);
+            createExplosionEffect(bomb.targetPosition, 1.05);
+            if (!bomb.soundPlayed && typeof playAirstrikeImpactSound === 'function') {
+                playAirstrikeImpactSound();
+                bomb.soundPlayed = true;
+            }
+            applyAirstrikeDamage(bomb);
+            airstrikeBombs.splice(i, 1);
+        }
+    }
+}
+
 function handleInput(clientX, clientY) {
     if (gameOver || isPaused || !gameStarted) return;
+    if (selectedTacticalType === 'airstrike') {
+        const target = getAirstrikeTargetFromScreen(clientX, clientY);
+        if (target) {
+            deployAirstrike(target);
+        } else {
+            playTone(160, 'sawtooth', 0.08, 0.035);
+        }
+        return;
+    }
     const rect = renderer.domElement.getBoundingClientRect();
     const x = ((clientX - rect.left) / rect.width) * 2 - 1;
     const y = -((clientY - rect.top) / rect.height) * 2 + 1;
@@ -365,7 +673,7 @@ function handleInput(clientX, clientY) {
             selectedWeaponType = null;
             updateUI();
             slots.forEach(s => s.userData.ring.material.opacity = 0);
-            document.querySelectorAll('.weapon-btn').forEach(b => b.style.border = "none");
+            clearWeaponSelectionUi();
         } else if (isSellMode && slot.userData.occupied) {
             const wObj = slot.userData.currentWeapon;
             score += Math.floor(PRICES[wObj.type] / 2);
@@ -402,21 +710,43 @@ function updateUI() {
     document.getElementById('scoreVal').innerText = score;
     document.getElementById('livesVal').innerText = lives;
     document.getElementById('levelVal').innerText = currentLevel;
-    [1, 2, 3].forEach(i => {
+    [1, 2, 3, 4].forEach(i => {
         const priceEl = document.getElementById('price' + i);
         if (priceEl) {
-            priceEl.innerText = `${PRICES[i]} Pts`;
+            priceEl.innerText = `${PRICES[i]}`;
         }
     });
     const teslaBtn = document.getElementById('btn3');
     teslaBtn.style.display = currentLevel === 1 ? 'none' : '';
     if (currentLevel === 1 && selectedWeaponType === 3) {
         selectedWeaponType = null;
+        clearWeaponSelectionUi();
     }
     [1, 2, 3].forEach(i => {
         document.getElementById('btn' + i).disabled = score < PRICES[i];
     });
+    updateAirstrikeButton();
 }
+
+function updateAirstrikeButton(time = performance.now()) {
+    const btn = document.getElementById('btn4');
+    if (!btn) return;
+    const config = getWeaponConfig(4);
+    const remaining = getAirstrikeCooldownRemaining(time);
+    const cooldownEl = document.getElementById('cooldown4');
+    btn.style.display = currentLevel >= 3 ? '' : 'none';
+    if (currentLevel < 3 && selectedTacticalType === 'airstrike') {
+        selectedTacticalType = null;
+        clearWeaponSelectionUi();
+    }
+    btn.disabled = currentLevel < 3 || gameOver || isPaused || score < config.price || remaining > 0;
+    btn.classList.toggle('cooling', remaining > 0);
+    if (cooldownEl) {
+        cooldownEl.textContent = remaining > 0 ? Math.ceil(remaining / 1000) : '';
+    }
+}
+
+initWeaponButtonPreviews();
 
 function updateBossHP(enemy) {
     if (!enemy.hpBar || !enemy.hpBar.userData.ctx) return;
@@ -499,14 +829,15 @@ function checkVictoryAfterKill(killedIsBoss) {
 }
 
 function explodeEnemy(position, sourceEnemy) {
-    const explosionRadius = 3;
+    const explosionRadius = 1.5;
+    const explosionDamage = 2.5;
     createExplosionEffect(position, explosionRadius);
     enemies.slice().forEach(enemy => {
         if (enemy === sourceEnemy || enemy.isDead) return;
         const dx = enemy.mesh.position.x - position.x;
         const dz = enemy.mesh.position.z - position.z;
         if (Math.sqrt(dx * dx + dz * dz) <= explosionRadius) {
-            damageEnemy(enemy, 5, null, true);
+            damageEnemy(enemy, explosionDamage, null, true);
         }
     });
 }
@@ -617,7 +948,7 @@ function damageEnemy(enemy, amount, sourceBullet = null, fromExplosion = false) 
         enemy.health = 0;
     }
 
-    if (enemy.isBoss) {
+    if (enemy.hpBar) {
         updateBossHP(enemy);
     }
 
@@ -687,6 +1018,8 @@ function createEnemyFromConfig(enemyConfig) {
     let enemyMesh;
     if (enemyConfig.modelType === 'robot') {
         enemyMesh = createRobotEnemy(false);
+    } else if (enemyConfig.modelType === 'heavyRobot') {
+        enemyMesh = createHeavyRobotEnemy();
     } else if (enemyConfig.modelType === 'eliteDrone') {
         enemyMesh = createDroneEnemy(true);
     } else if (enemyConfig.modelType === 'drone') {
@@ -697,6 +1030,10 @@ function createEnemyFromConfig(enemyConfig) {
         enemyMesh = createHoverArmorEnemy();
     } else if (enemyConfig.modelType === 'wheelbarrow') {
         enemyMesh = createWheelbarrowModel();
+    } else if (enemyConfig.modelType === 'portalA') {
+        enemyMesh = createPortalAEnemy();
+    } else if (enemyConfig.modelType === 'portalB') {
+        enemyMesh = createPortalBEnemy();
     } else {
         enemyMesh = createRobotEnemy(false);
     }
@@ -709,6 +1046,188 @@ function createEnemyFromConfig(enemyConfig) {
 }
 
 // ==================== 游戏主循环 ====================
+function getEnemyCategoryFromConfig(enemyConfig) {
+    if (enemyConfig.category) return enemyConfig.category;
+    if (typeof getEnemyCategory === 'function') {
+        return getEnemyCategory(enemyConfig.modelType);
+    }
+    if (enemyConfig.modelType === 'portalA' || enemyConfig.modelType === 'portalB') return 'portal';
+    if (enemyConfig.isDrone) return 'air';
+    if (enemyConfig.modelType === 'armored' || enemyConfig.modelType === 'wheelbarrow') return 'armor';
+    return 'infantry';
+}
+
+function getRandomPointOnEnemyPath(enemyPath) {
+    if (!enemyPath || enemyPath.length < 2) {
+        return { position: new THREE.Vector3(0, 0.08, 0), pathIdx: 0 };
+    }
+
+    const firstSegment = enemyPath.length > 3 ? 1 : 0;
+    const lastSegment = Math.max(firstSegment, enemyPath.length - 4);
+    const segmentIndex = firstSegment + Math.floor(Math.random() * (lastSegment - firstSegment + 1));
+    const start = enemyPath[segmentIndex];
+    const end = enemyPath[segmentIndex + 1];
+    const position = new THREE.Vector3().lerpVectors(start, end, 0.18 + Math.random() * 0.64);
+    position.y = 0.08;
+    return { position, pathIdx: segmentIndex };
+}
+
+function getLevelPortalEvents(level) {
+    return LEVEL_PORTAL_EVENTS[level] || [];
+}
+
+function getPortalConfigForLevel(level, modelType) {
+    const basePortalHp = LEVELS[1].bossHp;
+    const isPurplePortal = modelType === 'portalB';
+    return {
+        modelType: modelType,
+        health: Math.round(basePortalHp * (isPurplePortal ? 1.2 : 1)),
+        speed: 0,
+        scale: 1,
+        isDrone: false,
+        category: 'portal',
+        hpBarY: 2.4,
+        portalDurationMs: 15000,
+        portalMaxSpawns: isPurplePortal ? 20 : 15,
+        portalSpawnGroup: isPurplePortal ? 'air' : 'infantry',
+        portalSpawnIntervalMs: isPurplePortal ? 740 : 1000
+    };
+}
+
+function getScheduledPortalPath(portalEvent) {
+    if (portalEvent && portalEvent.path === 'alternate' && alternateEnemyPathPoints.length > 1) {
+        return alternateEnemyPathPoints;
+    }
+    return pathPoints;
+}
+
+function updateScheduledLevelPortals(time) {
+    const portalEvents = getLevelPortalEvents(currentLevel);
+    if (portalEvents.length <= 0 || levelPortalSpawnCount >= portalEvents.length) return;
+
+    while (levelPortalSpawnCount < portalEvents.length) {
+        const portalEvent = portalEvents[levelPortalSpawnCount];
+        const triggerCount = Math.floor(LEVELS[currentLevel].enemies * portalEvent.threshold);
+        if (spawnedCount < triggerCount) break;
+
+        const portalPath = getScheduledPortalPath(portalEvent);
+        const portalLocation = getRandomPointOnEnemyPath(portalPath);
+        createEnemyEntityFromConfig(
+            getPortalConfigForLevel(currentLevel, portalEvent.modelType),
+            portalPath,
+            portalLocation.position,
+            portalLocation.pathIdx,
+            { currentTime: time }
+        );
+        levelPortalSpawnCount++;
+    }
+}
+
+function addEnemyPhysicsIfNeeded(enemyMesh) {
+    if (typeof initEnemyPhysics === 'function') {
+        initEnemyPhysics();
+    }
+    if (typeof addEnemyRigidBody === 'function' && !enemyMesh.userData.hasPhysics) {
+        const radius = Math.max(0.35, Math.min(0.85, enemyMesh.scale.x * 0.45));
+        const height = Math.max(1.2, enemyMesh.scale.y * 1.2);
+        addEnemyRigidBody(enemyMesh, radius, height, 2);
+        enemyMesh.userData.hasPhysics = true;
+    }
+}
+
+function createEnemyEntityFromConfig(spawnConfig, enemyPath, spawnPosition, pathIdx = 0, options = {}) {
+    const enemyMesh = createEnemyFromConfig(spawnConfig);
+    const category = getEnemyCategoryFromConfig(spawnConfig);
+    const e = {
+        mesh: enemyMesh,
+        pathIdx: pathIdx,
+        pathPoints: enemyPath,
+        health: spawnConfig.health,
+        speed: getEnemySpeed(spawnConfig),
+        isDrone: !!spawnConfig.isDrone,
+        modelType: spawnConfig.modelType,
+        enemyCategory: category,
+        isPortal: category === 'portal'
+    };
+
+    enemyMesh.position.copy(spawnPosition);
+    if (e.isPortal) {
+        e.speed = 0;
+        e.portalBornTime = options.currentTime || performance.now();
+        e.maxHealth = e.health;
+        e.portalEndTime = e.portalBornTime + (spawnConfig.portalDurationMs || 15000);
+        e.portalNextSpawnTime = e.portalBornTime + 650;
+        e.portalSpawnedCount = 0;
+        e.portalMaxSpawns = spawnConfig.portalMaxSpawns || 15;
+        e.portalSpawnGroup = spawnConfig.portalSpawnGroup || 'infantry';
+        e.portalSpawnIntervalMs = spawnConfig.portalSpawnIntervalMs || 1000;
+
+        const hpBarContainer = new THREE.Group();
+        enemyMesh.add(hpBarContainer);
+        addHpBarToBoss(hpBarContainer, e.maxHealth, spawnConfig.hpBarY || 2.4);
+        e.hpBar = hpBarContainer.userData.hpBar;
+        e.hpBarContainer = hpBarContainer;
+    } else {
+        addEnemyPhysicsIfNeeded(enemyMesh);
+    }
+
+    scene.add(enemyMesh);
+    enemies.push(e);
+    return e;
+}
+
+function removeExpiredPortalEnemy(enemy) {
+    if (!enemy || enemy.isDead) return;
+    if (typeof removeEnemyFromBodyList === 'function') {
+        removeEnemyFromBodyList(enemy.mesh);
+    }
+    scene.remove(enemy.mesh);
+    const idx = enemies.indexOf(enemy);
+    if (idx !== -1) {
+        enemies.splice(idx, 1);
+    }
+}
+
+function updatePortalEnemies(time) {
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        const portal = enemies[i];
+        if (!portal || !portal.isPortal || portal.isDead || portal.isStalledAtZero) continue;
+
+        if (time >= portal.portalEndTime) {
+            removeExpiredPortalEnemy(portal);
+            continue;
+        }
+
+        if (
+            time >= portal.portalNextSpawnTime &&
+            portal.portalSpawnedCount < portal.portalMaxSpawns &&
+            enemies.length < 90 &&
+            (typeof choosePortalInfantryConfig === 'function' || typeof choosePortalAirConfig === 'function')
+        ) {
+            const spawnConfig = portal.portalSpawnGroup === 'air'
+                ? choosePortalAirConfig(currentLevel)
+                : choosePortalInfantryConfig(currentLevel);
+            const offsetAngle = Math.random() * Math.PI * 2;
+            const offsetRadius = 0.35 + Math.random() * 0.45;
+            const spawnPosition = portal.mesh.position.clone().add(new THREE.Vector3(
+                Math.sin(offsetAngle) * offsetRadius,
+                0.05,
+                Math.cos(offsetAngle) * offsetRadius
+            ));
+            createEnemyEntityFromConfig(
+                spawnConfig,
+                portal.pathPoints || pathPoints,
+                spawnPosition,
+                portal.pathIdx,
+                { fromPortal: true, currentTime: time }
+            );
+            portal.portalSpawnedCount++;
+            portal.portalNextSpawnTime = time + (portal.portalSpawnIntervalMs || 1000);
+            playTone(620, 'triangle', 0.14, 0.028);
+        }
+    }
+}
+
 let lastTime = 0;
 let spawnTimer = 0;
 
@@ -727,13 +1246,17 @@ function gameLoop(time) {
         adjustCamera();
     }
     updateBaseAlert(16);
+    if (typeof updateSpawnPortals === 'function') {
+        updateSpawnPortals(time);
+    }
     
     // Boss 血条始终面向摄像机
     enemies.forEach(e => {
-        if (e.isBoss && e.hpBarContainer) {
+        if (e.hpBarContainer) {
             e.hpBarContainer.lookAt(camera.position);
         }
     });
+    updateAirstrikeButton(time);
     
     // Tesla 炮台击杀数数字标签更新 - 机制已移除，不再显示击杀数
     
@@ -755,51 +1278,33 @@ function gameLoop(time) {
         spawnedCount++;
         
         const spawnConfig = chooseEnemyConfig(currentLevel);
-        const enemyMesh = createEnemyFromConfig(spawnConfig);
-        const health = spawnConfig.health;
-        const speed = getEnemySpeed(spawnConfig);
-        const isDrone = !!spawnConfig.isDrone;
-
         const enemyPath = (currentLevel === 3 && alternateEnemyPathPoints.length > 0 && Math.random() < (LEVELS[3].altEnemyChance || 0))
             ? alternateEnemyPathPoints
             : pathPoints;
-
-        const e = { 
-            mesh: enemyMesh, 
-            pathIdx: 0, 
-            pathPoints: enemyPath,
-            health: health, 
-            speed: speed,
-            isDrone: isDrone,
-            modelType: spawnConfig.modelType
-        };
-        enemyMesh.position.copy(enemyPath[0]);
-        
-        // Initialize physics for this enemy if physics world exists
-        if (typeof initEnemyPhysics === 'function') {
-            initEnemyPhysics();
-        }
-        if (typeof addEnemyRigidBody === 'function' && !enemyMesh.userData.hasPhysics) {
-            // Add a sphere rigid body for collision detection
-            const radius = 0.35; // Slightly smaller than visual model to prevent excessive pushing
-            const height = 1.2;
-            const mass = 2; // Lighter mass for easier movement
-            addEnemyRigidBody(enemyMesh, radius, height, mass);
-            enemyMesh.userData.hasPhysics = true;
-        }
-        
-        scene.add(enemyMesh);
-        enemies.push(e);
+        createEnemyEntityFromConfig(
+            spawnConfig,
+            enemyPath,
+            enemyPath[0],
+            0,
+            { currentTime: time }
+        );
     } else if (spawnedCount >= LEVELS[currentLevel].enemies && enemies.length === 0 && !bossSpawned) {
-        spawnBoss();
+        bossSpawned = true;
+        const warningText = currentLevel === 3 ? 'FINAL BOSS' : 'BOSS INCOMING';
+        queueBossSpawnWarning(warningText, () => spawnBoss());
     }
     
     // 第三关特殊逻辑：第一个 Boss 在小兵出一半时出场
-    if (currentLevel === 3 && !firstBossSpawned && spawnedCount >= Math.floor(LEVELS[3].enemies / 2)) {
-        spawnFirstBoss();
+    if ((currentLevel === 2 || currentLevel === 3) && !firstBossSpawned && spawnedCount >= Math.floor(LEVELS[currentLevel].enemies / 2)) {
+        firstBossSpawned = true;
+        const midBossText = currentLevel === 2 ? 'CHOPPER BOSS' : 'BOSS ALPHA';
+        queueBossSpawnWarning(midBossText, () => spawnFirstBoss());
     }
     
     // 敌人移动与动画 - 使用新的 AI 系统
+    updateScheduledLevelPortals(time);
+    updatePortalEnemies(time);
+
     if (typeof updateEnemyAI === 'function') {
         // 使用新的 AI 系统处理行走、转向和位置微调
         updateEnemyAI(enemies, delta);
@@ -807,7 +1312,7 @@ function gameLoop(time) {
         // 检查是否有敌人到达终点（需要在这里处理，因为 AI 模块不直接访问游戏状态）
         for (let i = enemies.length - 1; i >= 0; i--) {
             const e = enemies[i];
-            if (e.isDead || e.isStalledAtZero) continue;
+            if (e.isDead || e.isStalledAtZero || e.isPortal) continue;
             
             const enemyPath = e.pathPoints || pathPoints;
             // 如果已到达最后一个路点，说明到达基地
@@ -829,7 +1334,7 @@ function gameLoop(time) {
         // 后备：旧式直接移动逻辑
         for (let i = enemies.length - 1; i >= 0; i--) {
             const e = enemies[i];
-            if (e.isStalledAtZero) continue;
+            if (e.isStalledAtZero || e.isPortal) continue;
             
             const enemyPath = e.pathPoints || pathPoints;
             const target = enemyPath[e.pathIdx + 1];
@@ -879,6 +1384,7 @@ function gameLoop(time) {
             animateEnemy(e, time);
         }
     }
+    updateEnemyMovementSounds(time);
     
     // Update enemy physics simulation (collision avoidance between enemies)
     if (typeof updateEnemyPhysics === 'function') {
@@ -1096,6 +1602,8 @@ function gameLoop(time) {
         }
     }
     
+    updateAirstrikeBombs(time);
+
     // 粒子动画
     for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
@@ -1176,11 +1684,6 @@ function endGame(victory) {
         }
         playTone(800, 'sine', 0.2, 0.1);
         setTimeout(() => playTone(1000, 'sine', 0.3, 0.1), 200);
-        
-        // 显示本关得分
-        setTimeout(() => {
-            alert(`Mission ${currentLevel} Complete!\n\n杀敌得分：${killScore}\n剩余 HP 奖励：${lives * 20}\n本关总分：${levelScore}\n通关时间：${clearTime}秒`);
-        }, 500);
     } else {
         msgEl.innerText = "💀 GAME OVER";
         endBtn.innerText = "RETRY";
@@ -1208,4 +1711,3 @@ window.addEventListener('orientationchange', () => setTimeout(resizeGameViewport
 
 // ==================== 启动游戏循环 ====================
 requestAnimationFrame(gameLoop);
-
