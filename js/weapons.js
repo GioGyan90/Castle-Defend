@@ -509,12 +509,16 @@ function registerWeaponKill(b) {
     }
 }
 
+function getWeaponCardDamageBonus(w) {
+    return typeof getCardDamageBonus === 'function' ? getCardDamageBonus(w) : 0;
+}
+
 function getTeslaBaseDamage(w) {
     const config = getWeaponConfig(3);
     const charge = w.mesh.userData.teslaCharge || 0;
     const maxCharge = w.mesh.userData.teslaMaxCharge || config.teslaMaxCharge;
     const fullChargeBonus = charge >= maxCharge ? config.teslaFullChargeBonus : 0;
-    return config.damage + charge * config.teslaChargeDamage + fullChargeBonus;
+    return config.damage + charge * config.teslaChargeDamage + fullChargeBonus + getWeaponCardDamageBonus(w);
 }
 
 function getWeaponDamageRoll(w, fallbackDamage) {
@@ -535,6 +539,12 @@ function getWeaponDamageRoll(w, fallbackDamage) {
         normalDamage = getTeslaBaseDamage(w);
         critDamage = normalDamage + config.critDamageBonus;
         critRate = config.critRate;
+    }
+
+    if (w.type === 1 || w.type === 2) {
+        const cardBonus = getWeaponCardDamageBonus(w);
+        normalDamage += cardBonus;
+        critDamage += cardBonus;
     }
 
     const isCrit = Math.random() < critRate;

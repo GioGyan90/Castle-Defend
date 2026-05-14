@@ -9,35 +9,48 @@
 <body>
 
 <div id="status-bar" style="display:none;">
-    <div class="version-tag">V113</div>
+    <div class="version-tag" data-i18n="versionLabel">V127</div>
     <div class="lvl-tag">M:<span id="levelVal">1</span></div>
-    <div class="stat-item">HP <span id="livesVal">5</span></div>
+    <div id="hpItem" class="stat-item">HP <span id="livesVal">5</span></div>
+    <div id="timerItem" class="stat-item" style="display:none;">TIME <span id="timerVal">60</span></div>
     <div class="stat-item">PTS <span id="scoreVal">3</span></div>
     <button id="pauseBtn" class="pause-btn" onclick="showPauseMenu()" aria-label="暂停" title="暂停">⏸</button>
 </div>
 
 <div id="overlay">
     <div class="dialog main-menu">
-        <h2 id="modalTitle">Defend Castle</h2>
+        <div class="language-switch" aria-label="Language">
+            <button type="button" data-lang-option="zh" onclick="setGameLanguage('zh')">中</button>
+            <button type="button" data-lang-option="en" onclick="setGameLanguage('en')">EN</button>
+        </div>
+        <div class="menu-kicker" data-i18n="menuKicker">V127 战术防线</div>
+        <h2 id="modalTitle" data-i18n="title">Castle Defend</h2>
+        <p id="modalDesc" class="fresh-menu-desc" data-i18n="menuDesc">部署炮塔、空袭与卡牌，在四个任务中守住基地并完成反攻。</p>
         <p id="modalDesc">选择你的部署方式，检查敌军图鉴，或直接进入城堡防线。</p>
 
         <div class="menu-actions">
+            <button class="menu-btn play-start-btn" onclick="startGame(false)" aria-label="开始游戏">
+                <span class="play-icon"></span>
+                <span data-i18n="startGame">开始游戏</span>
+            </button>
+            <button class="menu-btn card-entry" onclick="showModelGallery('cards')" data-i18n="cardGallery">卡片展示馆</button>
             <button class="menu-btn start-btn" onclick="startGame(false)">直接开始游戏</button>
-            <button class="menu-btn debug-entry" onclick="showLevelSelect()">Debug 模式</button>
-            <button class="menu-btn enemy-entry" onclick="showModelGallery('enemies')">敌方单位展示馆</button>
-            <button class="menu-btn tower-entry" onclick="showModelGallery('towers')">防御塔展示馆</button>
-            <button class="menu-btn leaderboard-entry" onclick="showLeaderboard()">🏆 排行榜</button>
+            <button class="menu-btn debug-entry" onclick="showLevelSelect()" data-i18n="debugMode">Debug 模式</button>
+            <button class="menu-btn enemy-entry" onclick="showModelGallery('enemies')" data-i18n="enemyGallery">敌方单位展示馆</button>
+            <button class="menu-btn tower-entry" onclick="showModelGallery('towers')" data-i18n="towerGallery">防御塔展示馆</button>
+            <button class="menu-btn leaderboard-entry" onclick="showLeaderboard()">🏆 <span data-i18n="leaderboard">排行榜</span></button>
         </div>
 
         <div id="levelSelect" class="level-select" style="display:none;">
-            <label for="levelDropdown">Select Level:</label>
+            <label for="levelDropdown" data-i18n="levelSelect">选择关卡</label>
             <select id="levelDropdown">
                 <option value="1">Mission 1</option>
                 <option value="2">Mission 2</option>
                 <option value="3">Mission 3 - Final Boss</option>
+                <option value="4">Mission 4 - Assault</option>
             </select>
-            <button class="weapon-btn confirm-debug" onclick="startDebugWithLevel()">ENTER DEBUG</button>
-            <button class="weapon-btn cancel-debug" onclick="hideLevelSelect()">CANCEL</button>
+            <button class="weapon-btn confirm-debug" onclick="startDebugWithLevel()" data-i18n="enterDebug">进入调试</button>
+            <button class="weapon-btn cancel-debug" onclick="hideLevelSelect()" data-i18n="cancel">取消</button>
         </div>
     </div>
 </div>
@@ -46,10 +59,10 @@
     <div class="gallery-panel">
         <div class="gallery-header">
             <div>
-                <h2 id="galleryTitle">展示馆</h2>
-                <p id="galleryDesc">模型预览</p>
+                <h2 id="galleryTitle" data-i18n="galleryTitle">展示馆</h2>
+                <p id="galleryDesc" data-i18n="galleryDesc">模型预览</p>
             </div>
-            <button class="gallery-close" onclick="closeModelGallery()">返回</button>
+            <button class="gallery-close" onclick="closeModelGallery()" data-i18n="back">返回</button>
         </div>
         <div id="galleryGrid" class="model-grid"></div>
     </div>
@@ -59,10 +72,10 @@
     <div class="gallery-panel leaderboard-panel">
         <div class="gallery-header">
             <div>
-                <h2>🏆 玩家得分排行榜</h2>
-                <p id="leaderboardDesc">历史最高分记录 (前 10 名)</p>
+                <h2>🏆 <span data-i18n="leaderboardTitle">玩家得分排行榜</span></h2>
+                <p id="leaderboardDesc" data-i18n="leaderboardDesc">历史最高分记录（前 10 名）</p>
             </div>
-            <button class="gallery-close" onclick="closeLeaderboard()">返回</button>
+            <button class="gallery-close" onclick="closeLeaderboard()" data-i18n="back">返回</button>
         </div>
         <div id="leaderboardContent" class="leaderboard-content">
             <table class="leaderboard-table">
@@ -72,7 +85,7 @@
                         <th>关卡</th>
                         <th>玩家</th>
                         <th>得分</th>
-                        <th>剩余 HP</th>
+                        <th>HP / 用时</th>
                         <th>时间</th>
                     </tr>
                 </thead>
@@ -81,7 +94,7 @@
             </table>
         </div>
         <div class="leaderboard-footer">
-            <button class="weapon-btn" onclick="clearLeaderboard()">清空排行榜</button>
+            <button class="weapon-btn" onclick="clearLeaderboard()" data-i18n="clearLeaderboard">清空排行榜</button>
         </div>
     </div>
 </div>
@@ -90,14 +103,33 @@
 
 <div id="pauseOverlay" class="pause-overlay" style="display:none;">
     <div class="pause-panel">
-        <h2>游戏暂停</h2>
+        <h2 data-i18n="pauseTitle">游戏暂停</h2>
         <div class="pause-actions">
-            <button class="pause-action resume-action" onclick="resumeGame()">继续游戏</button>
-            <button class="pause-action home-action" onclick="returnToHome()">退回首页</button>
-            <button class="pause-action restart-action" onclick="restartCurrentLevel()">重开本关</button>
-            <button id="soundToggleBtn" class="pause-action sound-action" onclick="toggleSound()">关闭声音</button>
+            <button class="pause-action resume-action" onclick="resumeGame()" data-i18n="resume">继续游戏</button>
+            <button class="pause-action home-action" onclick="returnToHome()" data-i18n="home">返回首页</button>
+            <button class="pause-action restart-action" onclick="restartCurrentLevel()" data-i18n="restart">重开本关</button>
+            <button id="soundToggleBtn" class="pause-action sound-action" onclick="toggleSound()" data-i18n="soundOff">关闭声音</button>
         </div>
     </div>
+</div>
+
+<div id="cardPanel" class="card-panel" style="display:none;">
+    <div class="card-panel-title">CARDS</div>
+    <div class="card-shop">
+        <button id="cardBtnJ" class="card-buy-btn" onclick="buyCard('J')" title="J: Tower fire rate +25%">
+            <span class="playing-card compact"><span class="card-corner top">J</span><span class="card-suit">&spades;</span><span class="card-corner bottom">J</span></span>
+            <span class="card-price">15</span>
+        </button>
+        <button id="cardBtnQ" class="card-buy-btn" onclick="buyCard('Q')" title="Q: Tower damage +5, fire rate +15%">
+            <span class="playing-card compact"><span class="card-corner top">Q</span><span class="card-suit">&spades;</span><span class="card-corner bottom">Q</span></span>
+            <span class="card-price">25</span>
+        </button>
+        <button id="cardBtnK" class="card-buy-btn" onclick="buyCard('K')" title="K: Tower damage +10, fire rate +20%, +5 PTS/s">
+            <span class="playing-card compact"><span class="card-corner top">K</span><span class="card-suit">&spades;</span><span class="card-corner bottom">K</span></span>
+            <span class="card-price">35</span>
+        </button>
+    </div>
+    <div id="activeCards" class="active-cards"></div>
 </div>
 
 <div id="bottom-nav" style="display:none;">
@@ -119,6 +151,22 @@
             <span id="price4" class="price-tag">30</span>
             <span id="cooldown4" class="cooldown-mask"></span>
         </button>
+        <button id="btnAttackHeavy" class="weapon-btn attack-btn" onclick="buyAttackUnit('heavyRobot')" aria-label="Heavy Robot" title="Heavy Robot">
+            <span id="previewAttackHeavy" class="weapon-preview"></span>
+            <span id="priceAttackHeavy" class="price-tag">10</span>
+        </button>
+        <button id="btnAttackChopper" class="weapon-btn attack-btn" onclick="buyAttackUnit('chopper')" aria-label="Chopper" title="Chopper">
+            <span id="previewAttackChopper" class="weapon-preview"></span>
+            <span id="priceAttackChopper" class="price-tag">40</span>
+        </button>
+        <button id="btnAttackFinalBossAlpha" class="weapon-btn attack-btn" onclick="buyAttackUnit('finalBossAlpha')" aria-label="Final Boss Alpha" title="Final Boss Alpha">
+            <span id="previewAttackFinalBossAlpha" class="weapon-preview"></span>
+            <span id="priceAttackFinalBossAlpha" class="price-tag">160</span>
+        </button>
+        <button id="btnAttackPortalB" class="weapon-btn attack-btn" onclick="buyAttackUnit('portalB')" aria-label="Portal B" title="Portal B">
+            <span id="previewAttackPortalB" class="weapon-preview"></span>
+            <span id="priceAttackPortalB" class="price-tag">80</span>
+        </button>
     </div>
     <button id="btnSell" onclick="toggleSellMode()" aria-label="Recycle" title="Recycle">♻</button>
 </div>
@@ -126,7 +174,12 @@
 <div id="endScreen">
     <div id="msg"></div>
     <div id="damageSummary"></div>
-    <button class="weapon-btn" id="endBtn" style="background:#f1c40f; color:#000; padding:15px; margin-top:20px;" onclick="handleEndClick()">NEXT</button>
+    <div id="endActions" class="end-actions">
+        <button id="endNextBtn" class="end-action next-action" onclick="continueToNextLevel()" data-i18n="nextLevel">进入下一关</button>
+        <button id="endReplayBtn" class="end-action replay-action" onclick="restartCurrentLevel()" data-i18n="replayLevel">重玩本关</button>
+        <button id="endHomeBtn" class="end-action home-action" onclick="returnToHome()" data-i18n="home">返回首页</button>
+    </div>
+    <button class="weapon-btn legacy-end-btn" id="endBtn" onclick="continueToNextLevel()">NEXT</button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -137,6 +190,8 @@ window.CANNON = CANNON;
 <script src="js/weapon_config.js"></script>
 <script src="js/enemy_config.js"></script>
 <script src="js/config.js"></script>
+<script src="js/map_assets.js"></script>
+<script src="js/road_assets.js"></script>
 <script src="js/maps.js"></script>
 <script src="js/weapons.js"></script>
 <script src="js/enemies.js"></script>
@@ -145,8 +200,11 @@ window.CANNON = CANNON;
 <script src="js/castle.js"></script>
 <script src="js/space_base.js"></script>
 <script src="js/game_audio.js"></script>
-<script src="js/boss_warning.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/scene_announcer.js"></script>
+<script src="js/cards.js"></script>
 <script src="js/game.js"></script>
+<script src="js/ui.js"></script>
 <script src="js/gallery.js"></script>
 </body>
 </html>

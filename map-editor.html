@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Castle Defend Map Editor</title>
+    <link rel="stylesheet" href="css/map_editor.css">
+</head>
+<body>
+    <main class="editor-shell">
+        <header class="editor-topbar">
+            <div>
+                <div class="editor-kicker">V127 地图资产编辑器</div>
+                <h1>Map Editor</h1>
+            </div>
+            <div class="file-actions">
+                <button id="loadDefaultBtn" type="button">读取当前 maps.js</button>
+                <button id="openFileBtn" type="button">打开本地 maps.js</button>
+                <button id="saveFileBtn" type="button">保存</button>
+                <button id="downloadBtn" type="button">下载</button>
+                <a href="index.html" class="home-link">回到游戏</a>
+                <input id="fallbackFileInput" type="file" accept=".js,text/javascript,application/javascript" hidden>
+            </div>
+        </header>
+
+        <section class="status-line" id="statusLine">准备读取地图文件。</section>
+
+        <section class="editor-grid">
+            <aside class="side-panel">
+                <label class="field-label" for="levelSelect">关卡</label>
+                <select id="levelSelect"></select>
+
+                <div class="level-fields">
+                    <label>
+                        标题
+                        <input id="titleInput" type="text">
+                    </label>
+                    <label>
+                        敌人数
+                        <input id="enemiesInput" type="number" step="1">
+                    </label>
+                    <label>
+                        Boss HP
+                        <input id="bossHpInput" type="number" step="1">
+                    </label>
+                    <label>
+                        镜头范围
+                        <input id="cameraExtentInput" type="number" step="0.1">
+                    </label>
+                    <label>
+                        路宽
+                        <input id="roadWidthInput" type="number" step="0.1">
+                    </label>
+                    <label>
+                        出生点 X/Z
+                        <input id="spawnInput" type="text" readonly>
+                    </label>
+                    <label>
+                        基地 X/Z
+                        <input id="baseInput" type="text" readonly>
+                    </label>
+                </div>
+
+                <div class="hint-box">
+                    <strong>保存说明</strong>
+                    <p>“读取当前 maps.js”只能预览和下载。要直接写回文件，请先点“打开本地 maps.js”并选择项目里的 `js/maps.js`，之后“保存”会原地覆盖。</p>
+                </div>
+            </aside>
+
+            <section class="canvas-panel">
+                <canvas id="mapCanvas" width="720" height="720"></canvas>
+                <div class="legend">
+                    <span><b class="red"></b>道路</span>
+                    <span><b class="green"></b>出生点</span>
+                    <span><b class="blue"></b>炮台底座</span>
+                    <span><b class="yellow"></b>基地</span>
+                </div>
+            </section>
+
+            <section class="edit-panel">
+                <div class="editor-card">
+                    <div class="card-head">
+                        <h2>道路节点</h2>
+                        <button id="addPointBtn" type="button">加节点</button>
+                    </div>
+                    <div id="pointsList" class="row-list"></div>
+                </div>
+
+                <div class="editor-card">
+                    <div class="card-head">
+                        <h2>炮台底座</h2>
+                        <button id="addSlotBtn" type="button">加底座</button>
+                    </div>
+                    <div id="slotsList" class="row-list"></div>
+                </div>
+
+                <div class="editor-card">
+                    <div class="card-head">
+                        <h2>高级数据</h2>
+                        <button id="applyAdvancedBtn" type="button">应用</button>
+                    </div>
+                    <textarea id="advancedJson" spellcheck="false"></textarea>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <script src="js/map_editor.js"></script>
+</body>
+</html>

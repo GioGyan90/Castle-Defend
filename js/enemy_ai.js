@@ -86,7 +86,7 @@ function calculateAvoidanceSteering(enemy, allEnemies, ownRadius) {
     const avoidanceRange = ownRadius * 3;
     
     for (let other of allEnemies) {
-        if (other === enemy || other.isDead) continue;
+        if (other === enemy || other.isDead || other.isPortal) continue;
         
         const diff = new THREE.Vector3().subVectors(enemy.mesh.position, other.mesh.position);
         const distance = diff.length();

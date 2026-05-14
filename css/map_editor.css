@@ -1,0 +1,263 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: #07111f;
+    color: #f8fafc;
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+
+button,
+select,
+input,
+textarea {
+    font: inherit;
+}
+
+button,
+.home-link {
+    border: 0;
+    border-radius: 8px;
+    min-height: 38px;
+    padding: 8px 12px;
+    background: #1f9cf0;
+    color: #ffffff;
+    font-weight: 900;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.editor-shell {
+    width: min(1440px, 100%);
+    margin: 0 auto;
+    padding: 18px;
+}
+
+.editor-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 18px;
+    margin-bottom: 12px;
+}
+
+.editor-kicker {
+    display: inline-flex;
+    min-height: 26px;
+    align-items: center;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: rgba(41, 242, 255, 0.14);
+    color: #6ff7ff;
+    font-size: 12px;
+    font-weight: 1000;
+}
+
+h1 {
+    margin: 8px 0 0;
+    font-size: 34px;
+    line-height: 1;
+}
+
+.file-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.status-line {
+    min-height: 36px;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    border: 1px solid rgba(41, 242, 255, 0.26);
+    border-radius: 8px;
+    background: #0d1726;
+    color: #b9f8ff;
+    font-weight: 800;
+}
+
+.editor-grid {
+    display: grid;
+    grid-template-columns: 260px minmax(440px, 1fr) 390px;
+    gap: 14px;
+    align-items: start;
+}
+
+.side-panel,
+.canvas-panel,
+.editor-card {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    background: #101827;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28);
+}
+
+.side-panel {
+    padding: 14px;
+}
+
+.field-label,
+.level-fields label {
+    display: grid;
+    gap: 6px;
+    color: #aebdd2;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.level-fields {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+select,
+input,
+textarea {
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 7px;
+    background: #07111f;
+    color: #f8fafc;
+    min-height: 38px;
+    padding: 8px 10px;
+}
+
+input[readonly] {
+    color: #6ff7ff;
+}
+
+.hint-box {
+    margin-top: 14px;
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(41, 242, 255, 0.08);
+    color: #dbeafe;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.hint-box p {
+    margin: 6px 0 0;
+}
+
+.canvas-panel {
+    padding: 12px;
+}
+
+#mapCanvas {
+    display: block;
+    width: 100%;
+    max-height: calc(100vh - 140px);
+    aspect-ratio: 1;
+    border-radius: 8px;
+    background: #263238;
+}
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 10px;
+    color: #dbeafe;
+    font-weight: 900;
+    font-size: 13px;
+}
+
+.legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legend b {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+}
+
+.legend .red { background: #ff5c67; }
+.legend .green { background: #26de81; }
+.legend .blue { background: #1fb6ff; }
+.legend .yellow { background: #ffd32a; }
+
+.edit-panel {
+    display: grid;
+    gap: 14px;
+}
+
+.editor-card {
+    padding: 12px;
+}
+
+.card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.card-head h2 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.row-list {
+    display: grid;
+    gap: 8px;
+    max-height: 280px;
+    overflow: auto;
+}
+
+.data-row {
+    display: grid;
+    grid-template-columns: 34px 1fr 1fr 34px;
+    gap: 6px;
+    align-items: center;
+}
+
+.data-row span {
+    color: #aebdd2;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.data-row button {
+    min-height: 34px;
+    padding: 0;
+    background: #d63031;
+}
+
+#advancedJson {
+    min-height: 210px;
+    resize: vertical;
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+@media (max-width: 1100px) {
+    .editor-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .editor-topbar {
+        flex-direction: column;
+    }
+
+    .file-actions {
+        justify-content: flex-start;
+    }
+}

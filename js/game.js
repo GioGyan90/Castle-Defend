@@ -24,6 +24,19 @@ const weaponDamageStats = [];
 let weaponSerial = 0;
 let airstrikeSerial = 0;
 let airstrikeCooldownUntil = 0;
+let lastAttackIncomeTime = 0;
+let lastCardIncomeTime = 0;
+let attackTimeRemainingMs = 0;
+let attackUnitsDeployed = 0;
+let attackGoldSpent = 0;
+let attackBossPurchased = {};
+let attackBaseHpGroup = null;
+let attackBaseHpPips = [];
+const ATTACK_BASE_HP_BAR_ASSETS = {
+    savedFivePipHp: 5,
+    canvasWidth: 360,
+    canvasHeight: 76
+};
 let levelStartTime = 0; // 关卡开始时间用于计算通关时间
 
 const WEAPON_DISPLAY_NAMES = {
@@ -44,6 +57,73 @@ const LEVEL_PORTAL_EVENTS = {
     ]
 };
 
+const ATTACK_MODE_LEVEL = 4;
+const ATTACK_UNIT_CONFIGS = {
+    heavyRobot: {
+        label: 'Heavy Robot',
+        price: 10,
+        spawn: {
+            modelType: 'heavyRobot',
+            health: 28,
+            speedMin: 0.018,
+            speedMax: 0.026,
+            scale: 1.22,
+            isDrone: false,
+            category: 'infantry'
+        }
+    },
+    chopper: {
+        label: 'Chopper',
+        price: 40,
+        limitOnce: true,
+        spawn: {
+            modelType: 'chopper',
+            health: 160,
+            speed: 0.022,
+            scale: 0.9,
+            isDrone: true,
+            isBoss: true,
+            isFlyingBoss: true,
+            flightBaseY: 2.5,
+            category: 'boss',
+            hpBarY: 4.4
+        }
+    },
+    finalBossAlpha: {
+        label: 'Final Boss Alpha',
+        price: 160,
+        limitOnce: true,
+        spawn: {
+            modelType: 'finalBossAlpha',
+            health: 320,
+            speed: 0.016,
+            scale: 1,
+            isDrone: false,
+            isBoss: true,
+            category: 'boss',
+            hpBarY: 4.5
+        }
+    },
+    portalB: {
+        label: 'Portal B',
+        price: 80,
+        maxPurchases: 2,
+        spawn: {
+            modelType: 'portalB',
+            health: 144,
+            speed: 0,
+            scale: 1,
+            isDrone: false,
+            category: 'portal',
+            hpBarY: 2.4,
+            portalDurationMs: 15000,
+            portalMaxSpawns: 20,
+            portalSpawnGroup: 'air',
+            portalSpawnIntervalMs: 740
+        }
+    }
+};
+
 // ==================== Three.js 场景设置 ====================
 const scene = new THREE.Scene(); 
 scene.background = new THREE.Color(0x130f40);
@@ -62,6 +142,8 @@ const camera = new THREE.PerspectiveCamera(50, initialViewport.width / initialVi
 // 存储摄像机基础位置用于震动效果
 let baseCameraY = 24;
 let baseCameraZ = 18;
+let baseCameraX = 0;
+let baseCameraLookAtX = 0;
 let baseCameraLookAtZ = 0;
 
 function getCurrentMapExtent() {
@@ -76,20 +158,32 @@ function getCurrentMapExtent() {
 
     return allPoints.reduce((extent, point) => {
         return Math.max(extent, Math.abs(point[0]), Math.abs(point[1]));
-    }, 18);
+    }, cfg.cameraExtent || 18);
 }
 
 function adjustCamera() {
     const viewport = getViewportSize();
     const aspect = viewport.width / viewport.height;
+    const cfg = typeof LEVELS !== 'undefined' ? LEVELS[currentLevel] : null;
+    const cameraTuning = cfg && cfg.camera ? cfg.camera : {};
     const mapExtent = getCurrentMapExtent();
     const isPortrait = aspect < 1;
-    const camDist = Math.max(isPortrait ? 52 : 28, mapExtent * (isPortrait ? 3.1 : 1.45));
+    const orientationTuning = isPortrait ? (cameraTuning.portrait || {}) : (cameraTuning.landscape || {});
+    const targetFov = orientationTuning.fov || (isPortrait ? 54 : 50);
+    if (camera.fov !== targetFov) {
+        camera.fov = targetFov;
+        camera.updateProjectionMatrix();
+    }
+    const minDistance = orientationTuning.minDistance || (isPortrait ? 48 : 28);
+    const distanceFactor = orientationTuning.factor || (isPortrait ? 2.78 : 1.45);
+    const camDist = Math.max(minDistance, mapExtent * distanceFactor);
+    baseCameraX = orientationTuning.x !== undefined ? orientationTuning.x : (isPortrait ? 1.25 : 0);
+    baseCameraLookAtX = orientationTuning.lookAtX !== undefined ? orientationTuning.lookAtX : baseCameraX;
     baseCameraY = camDist;
-    baseCameraZ = camDist * (isPortrait ? 0.82 : 0.75);
-    baseCameraLookAtZ = isPortrait ? 4 : 0;
-    camera.position.set(0, baseCameraY, baseCameraZ);
-    camera.lookAt(0, 0, baseCameraLookAtZ);
+    baseCameraZ = camDist * (orientationTuning.zRatio || (isPortrait ? 0.78 : 0.75));
+    baseCameraLookAtZ = orientationTuning.lookAtZ !== undefined ? orientationTuning.lookAtZ : (isPortrait ? 12.7 : 4.4);
+    camera.position.set(baseCameraX, baseCameraY, baseCameraZ);
+    camera.lookAt(baseCameraLookAtX, 0, baseCameraLookAtZ);
 }
 adjustCamera();
 
@@ -154,6 +248,10 @@ function buildMap() {
     castleShakeTime = 0; // 重置震动状态
 }
 
+function isAttackMode() {
+    return currentLevel === ATTACK_MODE_LEVEL;
+}
+
 // ==================== 游戏流程控制 ====================
 function startGame(debug = false) {
     ensureAudioReady();
@@ -168,8 +266,9 @@ function startGame(debug = false) {
     document.getElementById('bottom-nav').style.display = 'flex';
     buildMap();
     adjustCamera();
-    score = isDebugMode ? 1000 : (currentLevel === 1 ? 3 : (currentLevel === 2 ? 15 : 30));
-    lives = 5;
+    const levelConfig = LEVELS[currentLevel] || LEVELS[1];
+    score = levelConfig.startingScore !== undefined ? levelConfig.startingScore : (isDebugMode ? 1000 : (currentLevel === 1 ? 3 : (currentLevel === 2 ? 15 : 30)));
+    lives = levelConfig.opponentBaseHp || 5;
     spawnedCount = 0;
     gameOver = false;
     bossSpawned = false;
@@ -177,9 +276,25 @@ function startGame(debug = false) {
     levelPortalSpawnCount = 0;
     selectedTacticalType = null;
     airstrikeCooldownUntil = 0;
+    lastAttackIncomeTime = 0;
+    attackTimeRemainingMs = levelConfig.timeLimitMs || 0;
+    attackUnitsDeployed = 0;
+    attackGoldSpent = 0;
+    attackBossPurchased = {};
+    lastCardIncomeTime = 0;
+    if (typeof resetCardSystem === 'function') resetCardSystem();
+    if (isAttackMode()) {
+        setupAttackModeLevel();
+    }
     levelStartTime = Date.now(); // 记录关卡开始时间
     updateUI();
     gameStarted = true;
+    updateUI();
+    if (typeof announceLevelStart === 'function') {
+        window.setTimeout(function() {
+            if (gameStarted && !gameOver && !isPaused) announceLevelStart(currentLevel);
+        }, 260);
+    }
     lastTime = 0;
     spawnTimer = 0;
 }
@@ -195,7 +310,13 @@ function clearRunObjects() {
         if (b.glowMesh) scene.remove(b.glowMesh);
     });
     bullets.length = 0;
-    weapons.forEach(w => scene.remove(w.mesh));
+    weapons.forEach(w => {
+        scene.remove(w.mesh);
+        if (w.padMesh) {
+            if (w.padMesh.parent) w.padMesh.parent.remove(w.padMesh);
+            else scene.remove(w.padMesh);
+        }
+    });
     weapons.length = 0;
     particles.forEach(p => scene.remove(p.mesh || p));
     particles.length = 0;
@@ -205,14 +326,28 @@ function clearRunObjects() {
     airstrikeBombs.length = 0;
     airstrikeMarkers.forEach(m => scene.remove(m.mesh));
     airstrikeMarkers.length = 0;
+    if (attackBaseHpGroup) {
+        scene.remove(attackBaseHpGroup);
+        attackBaseHpGroup = null;
+    }
+    attackBaseHpPips = [];
+    document.querySelectorAll('.attack-income-pop').forEach(el => el.remove());
     slots.length = 0;
     weaponDamageStats.length = 0;
     weaponSerial = 0;
     airstrikeSerial = 0;
     airstrikeCooldownUntil = 0;
+    lastAttackIncomeTime = 0;
+    lastCardIncomeTime = 0;
+    attackTimeRemainingMs = 0;
+    attackUnitsDeployed = 0;
+    attackGoldSpent = 0;
+    attackBossPurchased = {};
     levelPortalSpawnCount = 0;
     selectedWeaponType = null;
     selectedTacticalType = null;
+    if (typeof resetCardSystem === 'function') resetCardSystem();
+    updateTacticalCursor();
     isSellMode = false;
     clearWeaponSelectionUi();
     document.getElementById('btnSell').classList.remove('active');
@@ -231,32 +366,12 @@ function resumeGame() {
     document.getElementById('pauseOverlay').style.display = 'none';
 }
 
-function returnToHome() {
-    clearRunObjects();
-    isPaused = false;
-    gameStarted = false;
-    gameOver = false;
-    isDebugMode = false;
-    currentLevel = 1;
-    buildMap();
-    document.getElementById('pauseOverlay').style.display = 'none';
-    document.getElementById('endScreen').style.display = 'none';
-    document.getElementById('status-bar').style.display = 'none';
-    document.getElementById('bottom-nav').style.display = 'none';
-    document.getElementById('overlay').style.display = 'flex';
-    hideLevelSelect();
-}
-
-function restartCurrentLevel() {
-    const restartDebugMode = isDebugMode;
-    clearRunObjects();
-    document.getElementById('pauseOverlay').style.display = 'none';
-    document.getElementById('endScreen').style.display = 'none';
-    startGame(restartDebugMode);
-}
-
 function updateSoundButton() {
     const btn = document.getElementById('soundToggleBtn');
+    if (btn) {
+        btn.innerText = isMuted ? t('soundOn') : t('soundOff');
+        return;
+    }
     if (btn) btn.innerText = isMuted ? '开启声音' : '关闭声音';
 }
 
@@ -272,84 +387,93 @@ function toggleSound() {
 }
 
 // 显示关卡选择下拉列表
-function showLevelSelect() {
-    document.getElementById('levelSelect').style.display = 'block';
-}
-
 // 隐藏关卡选择下拉列表
-function hideLevelSelect() {
-    document.getElementById('levelSelect').style.display = 'none';
-}
-
 // 根据选择的关卡开始 Debug 模式
-function startDebugWithLevel() {
-    const levelDropdown = document.getElementById('levelDropdown');
-    currentLevel = parseInt(levelDropdown.value);
-    hideLevelSelect();
-    startGame(true);
-}
-
-function handleEndClick() {
-    const btnText = document.getElementById('endBtn').innerText;
-    if (btnText === "REPLAY") {
-        currentLevel = 1;
-    } else if (btnText === "NEXT MISSION") {
-        currentLevel = 2;
-    } else if (btnText === "MISSION 3") {
-        currentLevel = 3;
-    }
-    resetUIForLevel();
-}
-
-function resetUIForLevel() {
-    clearRunObjects();
-    isPaused = false;
-    document.getElementById('endScreen').style.display = 'none';
-    document.getElementById('pauseOverlay').style.display = 'none';
-    document.getElementById('overlay').style.display = 'flex';
-    gameStarted = false;
-    isDebugMode = false;
-}
-
 // ==================== 武器系统 ====================
 function clearWeaponSelectionUi() {
     document.querySelectorAll('#bottom-nav .weapon-btn').forEach(b => b.classList.remove('selected'));
 }
 
+function updateTacticalCursor() {
+    document.body.classList.toggle(
+        'airstrike-aiming',
+        selectedTacticalType === 'airstrike' && gameStarted && !gameOver && !isPaused
+    );
+}
+
+function getAttackUnitIdSuffix(unitKey) {
+    if (unitKey === 'heavyRobot') return 'Heavy';
+    if (unitKey === 'chopper') return 'Chopper';
+    if (unitKey === 'finalBossAlpha') return 'FinalBossAlpha';
+    if (unitKey === 'portalB') return 'PortalB';
+    return unitKey;
+}
+
+function createAttackUnitModel(unitKey) {
+    if (unitKey === 'heavyRobot') return createHeavyRobotEnemy();
+    if (unitKey === 'finalBossAlpha') {
+        const model = new THREE.Group();
+        createSteelGorillaBoss(model);
+        return model;
+    }
+    if (unitKey === 'chopper') {
+        const model = createImportedChopperModel(THREE);
+        const rotorRefs = { mainRotor: null, tailRotor: null };
+        model.traverse(obj => {
+            if (!obj.userData) return;
+            if (obj.userData.mainRotor && !rotorRefs.mainRotor) rotorRefs.mainRotor = obj.userData.mainRotor;
+            if (obj.userData.tailRotor && !rotorRefs.tailRotor) rotorRefs.tailRotor = obj.userData.tailRotor;
+        });
+        model.userData.mainRotor = rotorRefs.mainRotor;
+        model.userData.tailRotor = rotorRefs.tailRotor;
+        return model;
+    }
+    if (unitKey === 'portalB') return createPortalBEnemy();
+    return createHeavyRobotEnemy();
+}
+
+function renderButtonPreview(holderId, model, previewScale = 2.1, yOffset = 0.42) {
+    const holder = document.getElementById(holderId);
+    if (!holder || holder.querySelector('canvas')) return;
+
+    const previewScene = new THREE.Scene();
+    const previewCamera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+    previewCamera.position.set(2.0, 1.85, 2.85);
+    previewCamera.lookAt(0, 0.45, 0);
+    previewScene.add(new THREE.AmbientLight(0xffffff, 0.88));
+
+    const previewLight = new THREE.DirectionalLight(0xffffff, 1.35);
+    previewLight.position.set(2, 4, 3);
+    previewScene.add(previewLight);
+
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+    model.position.sub(center);
+    model.scale.multiplyScalar(previewScale / maxDim);
+    model.position.y += yOffset;
+    model.rotation.y = -0.45;
+    model.rotation.x = -0.08;
+    previewScene.add(model);
+
+    const previewRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    previewRenderer.setSize(56, 56, false);
+    holder.appendChild(previewRenderer.domElement);
+    previewRenderer.render(previewScene, previewCamera);
+}
+
 function initWeaponButtonPreviews() {
     [1, 2, 3, 4].forEach(type => {
-        const holder = document.getElementById('preview' + type);
-        if (!holder || holder.querySelector('canvas')) return;
-
-        const previewScene = new THREE.Scene();
-        const previewCamera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
-        previewCamera.position.set(2.0, 1.85, 2.85);
-        previewCamera.lookAt(0, 0.45, 0);
-        previewScene.add(new THREE.AmbientLight(0xffffff, 0.88));
-
-        const previewLight = new THREE.DirectionalLight(0xffffff, 1.35);
-        previewLight.position.set(2, 4, 3);
-        previewScene.add(previewLight);
-
         const model = createWeaponModel(type);
-        const box = new THREE.Box3().setFromObject(model);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z) || 1;
-        model.position.sub(center);
         const previewScale = type === 3 ? 2.35 : (type === 4 ? 2.45 : 2.12);
-        model.scale.multiplyScalar(previewScale / maxDim);
-        model.position.y += type === 3 ? 0.55 : (type === 4 ? 0.48 : 0.42);
-        model.rotation.y = -0.45;
-        model.rotation.x = -0.08;
-        previewScene.add(model);
-
-        const previewRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        previewRenderer.setSize(56, 56, false);
-        holder.appendChild(previewRenderer.domElement);
-        previewRenderer.render(previewScene, previewCamera);
+        renderButtonPreview('preview' + type, model, previewScale, type === 3 ? 0.55 : (type === 4 ? 0.48 : 0.42));
     });
+    renderButtonPreview('previewAttackHeavy', createAttackUnitModel('heavyRobot'), 2.2, 0.5);
+    renderButtonPreview('previewAttackChopper', createAttackUnitModel('chopper'), 2.55, 0.3);
+    renderButtonPreview('previewAttackFinalBossAlpha', createAttackUnitModel('finalBossAlpha'), 2.25, 0.45);
+    renderButtonPreview('previewAttackPortalB', createAttackUnitModel('portalB'), 2.35, 0.46);
 }
 
 function buyWeapon(type) {
@@ -361,6 +485,7 @@ function buyWeapon(type) {
     if (gameOver || isPaused || score < PRICES[type]) return;
     isSellMode = false;
     selectedTacticalType = null;
+    updateTacticalCursor();
     document.getElementById('btnSell').classList.remove('active');
     selectedWeaponType = type;
     clearWeaponSelectionUi();
@@ -384,6 +509,7 @@ function buyAirstrike() {
     isSellMode = false;
     selectedWeaponType = null;
     selectedTacticalType = 'airstrike';
+    updateTacticalCursor();
     document.getElementById('btnSell').classList.remove('active');
     clearWeaponSelectionUi();
     const btn = document.getElementById('btn4');
@@ -391,11 +517,52 @@ function buyAirstrike() {
     slots.forEach(s => s.userData.ring.material.opacity = 0);
 }
 
+function buyAttackUnit(unitKey) {
+    if (!isAttackMode() || gameOver || isPaused) return;
+    const unit = ATTACK_UNIT_CONFIGS[unitKey];
+    if (!unit || score < unit.price || !pathPoints.length) return;
+    if (unit.limitOnce && attackBossPurchased[unitKey]) return;
+    if (unit.maxPurchases && (attackBossPurchased[unitKey] || 0) >= unit.maxPurchases) return;
+
+    score -= unit.price;
+    attackUnitsDeployed++;
+    attackGoldSpent += unit.price;
+    if (unit.limitOnce) {
+        attackBossPurchased[unitKey] = true;
+    } else if (unit.maxPurchases) {
+        attackBossPurchased[unitKey] = (attackBossPurchased[unitKey] || 0) + 1;
+    }
+    const spawnConfig = Object.assign({}, unit.spawn);
+    let spawnPosition;
+    let pathIdx = 0;
+    if (unitKey === 'portalB') {
+        const portalLocation = getRandomPointOnEnemyPath(pathPoints);
+        spawnPosition = portalLocation.position;
+        pathIdx = portalLocation.pathIdx;
+    } else {
+        const start = pathPoints[0].clone();
+        const next = pathPoints[1] || start;
+        const forward = new THREE.Vector3().subVectors(next, start).normalize();
+        const lateral = new THREE.Vector3(-forward.z, 0, forward.x);
+        spawnPosition = start
+            .add(forward.multiplyScalar(0.5))
+            .add(lateral.multiplyScalar((Math.random() - 0.5) * 1.25));
+        spawnPosition.y = 0.1;
+    }
+    createEnemyEntityFromConfig(spawnConfig, pathPoints, spawnPosition, pathIdx, { currentTime: performance.now(), attackUnit: true });
+    if (typeof announceBattleEvent === 'function') {
+        announceBattleEvent('attack-unit-' + unitKey, t('attackUnitDeployed', { name: unit.label }), spawnPosition, 900);
+    }
+    playTone(unitKey === 'portalB' ? 520 : 420, 'triangle', 0.16, 0.045);
+    updateUI();
+}
+
 function toggleSellMode() {
     if (gameOver || isPaused) return;
     isSellMode = !isSellMode;
     selectedWeaponType = null;
     selectedTacticalType = null;
+    updateTacticalCursor();
     clearWeaponSelectionUi();
     document.getElementById('btnSell').classList.toggle('active', isSellMode);
     slots.forEach(s => {
@@ -509,10 +676,14 @@ function deployAirstrike(target) {
     const config = getWeaponConfig(4);
     const now = performance.now();
     if (currentLevel < 3 || score < config.price || getAirstrikeCooldownRemaining(now) > 0) return;
+    if (typeof announceBattleEvent === 'function') {
+        announceBattleEvent('airstrike-deploy', t('airstrike'), target.position, 1300);
+    }
 
     score -= config.price;
     airstrikeCooldownUntil = now + config.cooldownMs;
     selectedTacticalType = null;
+    updateTacticalCursor();
     clearWeaponSelectionUi();
 
     const attackId = ++airstrikeSerial;
@@ -533,7 +704,7 @@ function deployAirstrike(target) {
         lateral,
         length: config.length,
         width: config.width,
-        damage: config.damage,
+        damage: getAdjustedAirstrikeDamage(config.damage),
         rows: config.rows,
         damagedEnemies: new Set(),
         damageStat
@@ -670,6 +841,9 @@ function handleInput(clientX, clientY) {
             weapons.push(wObj);
             slot.userData.occupied = true;
             slot.userData.currentWeapon = wObj;
+            if (typeof announceBattleEvent === 'function') {
+                announceBattleEvent('weapon-deploy-' + weaponId, t('weaponDeployed', { name: WEAPON_DISPLAY_NAMES[wObj.type] }), model.position, 0);
+            }
             selectedWeaponType = null;
             updateUI();
             slots.forEach(s => s.userData.ring.material.opacity = 0);
@@ -690,12 +864,12 @@ function handleInput(clientX, clientY) {
 
 // 事件监听
 window.addEventListener('mousedown', (e) => {
-    if (e.target.closest('#bottom-nav') || e.target.closest('#status-bar') || e.target.closest('#endScreen') || e.target.closest('#overlay') || e.target.closest('#modelGallery')) return;
+    if (e.target.closest('#bottom-nav') || e.target.closest('#cardPanel') || e.target.closest('#status-bar') || e.target.closest('#endScreen') || e.target.closest('#overlay') || e.target.closest('#modelGallery')) return;
     handleInput(e.clientX, e.clientY);
 });
 
 window.addEventListener('touchstart', (e) => {
-    if (e.target.closest('#bottom-nav') || e.target.closest('#status-bar') || e.target.closest('#endScreen') || e.target.closest('#overlay') || e.target.closest('#modelGallery')) return;
+    if (e.target.closest('#bottom-nav') || e.target.closest('#cardPanel') || e.target.closest('#status-bar') || e.target.closest('#endScreen') || e.target.closest('#overlay') || e.target.closest('#modelGallery')) return;
     handleInput(e.touches[0].clientX, e.touches[0].clientY);
 }, { passive: false });
 
@@ -710,12 +884,48 @@ function updateUI() {
     document.getElementById('scoreVal').innerText = score;
     document.getElementById('livesVal').innerText = lives;
     document.getElementById('levelVal').innerText = currentLevel;
+    if (typeof updateCardPanelUI === 'function') updateCardPanelUI();
+    const hpItem = document.getElementById('hpItem');
+    if (hpItem) hpItem.style.display = isAttackMode() ? 'none' : '';
     [1, 2, 3, 4].forEach(i => {
         const priceEl = document.getElementById('price' + i);
         if (priceEl) {
             priceEl.innerText = `${PRICES[i]}`;
         }
     });
+    Object.keys(ATTACK_UNIT_CONFIGS).forEach(unitKey => {
+        const cfg = ATTACK_UNIT_CONFIGS[unitKey];
+        const idSuffix = getAttackUnitIdSuffix(unitKey);
+        const priceEl = document.getElementById('priceAttack' + idSuffix);
+        const btn = document.getElementById('btnAttack' + idSuffix);
+        if (priceEl) priceEl.innerText = `${cfg.price}`;
+        if (btn) {
+            btn.style.display = isAttackMode() ? '' : 'none';
+            const reachedMax = cfg.limitOnce
+                ? !!attackBossPurchased[unitKey]
+                : (cfg.maxPurchases ? (attackBossPurchased[unitKey] || 0) >= cfg.maxPurchases : false);
+            btn.disabled = !isAttackMode() || gameOver || isPaused || score < cfg.price || reachedMax;
+        }
+    });
+    [1, 2, 3, 4].forEach(i => {
+        const btn = document.getElementById('btn' + i);
+        if (btn) btn.style.display = isAttackMode() ? 'none' : '';
+    });
+    const sellBtn = document.getElementById('btnSell');
+    if (sellBtn) sellBtn.style.display = isAttackMode() ? 'none' : '';
+    updateAttackCountdownUI();
+    if (isAttackMode()) {
+        selectedWeaponType = null;
+        selectedTacticalType = null;
+        isSellMode = false;
+        updateTacticalCursor();
+        clearWeaponSelectionUi();
+        if (sellBtn) sellBtn.classList.remove('active');
+        updateAttackBaseHpDisplay();
+        return;
+    }
+    const timerItem = document.getElementById('timerItem');
+    if (timerItem) timerItem.style.display = 'none';
     const teslaBtn = document.getElementById('btn3');
     teslaBtn.style.display = currentLevel === 1 ? 'none' : '';
     if (currentLevel === 1 && selectedWeaponType === 3) {
@@ -734,12 +944,13 @@ function updateAirstrikeButton(time = performance.now()) {
     const config = getWeaponConfig(4);
     const remaining = getAirstrikeCooldownRemaining(time);
     const cooldownEl = document.getElementById('cooldown4');
-    btn.style.display = currentLevel >= 3 ? '' : 'none';
-    if (currentLevel < 3 && selectedTacticalType === 'airstrike') {
+    btn.style.display = currentLevel >= 3 && !isAttackMode() ? '' : 'none';
+    if ((currentLevel < 3 || isAttackMode()) && selectedTacticalType === 'airstrike') {
         selectedTacticalType = null;
         clearWeaponSelectionUi();
     }
-    btn.disabled = currentLevel < 3 || gameOver || isPaused || score < config.price || remaining > 0;
+    updateTacticalCursor();
+    btn.disabled = currentLevel < 3 || isAttackMode() || gameOver || isPaused || score < config.price || remaining > 0;
     btn.classList.toggle('cooling', remaining > 0);
     if (cooldownEl) {
         cooldownEl.textContent = remaining > 0 ? Math.ceil(remaining / 1000) : '';
@@ -832,6 +1043,9 @@ function explodeEnemy(position, sourceEnemy) {
     const explosionRadius = 1.5;
     const explosionDamage = 2.5;
     createExplosionEffect(position, explosionRadius);
+    if (typeof announceBattleEvent === 'function') {
+        announceBattleEvent('explosion-event', t('explosion'), position, 1800);
+    }
     enemies.slice().forEach(enemy => {
         if (enemy === sourceEnemy || enemy.isDead) return;
         const dx = enemy.mesh.position.x - position.x;
@@ -853,6 +1067,9 @@ function killEnemy(enemy, sourceBullet = null, skipExplosion = false) {
 
     const killedIsBoss = enemy.isBoss;
     const deathPosition = enemy.mesh.position.clone();
+    if (killedIsBoss && typeof announceBattleEvent === 'function') {
+        announceBattleEvent('boss-down', t('bossDown'), deathPosition, 1200);
+    }
     
     // Remove from physics world first
     if (typeof removeEnemyFromBodyList === 'function') {
@@ -868,7 +1085,9 @@ function killEnemy(enemy, sourceBullet = null, skipExplosion = false) {
     if (sourceBullet) {
         registerWeaponKill(sourceBullet);
     }
-    score += killedIsBoss ? 50 : 1;
+    if (!isAttackMode()) {
+        score += killedIsBoss ? 50 : 1;
+    }
     updateUI();
 
     if (!skipExplosion) {
@@ -967,6 +1186,20 @@ function renderDamageSummary() {
     const summaryEl = document.getElementById('damageSummary');
     if (!summaryEl) return;
 
+    if (isAttackMode()) {
+        const cfg = LEVELS[currentLevel] || {};
+        const timeLimit = cfg.timeLimitMs || 60000;
+        const elapsed = Math.ceil(Math.max(0, timeLimit - attackTimeRemainingMs) / 1000);
+        summaryEl.innerHTML = `
+            <div class="damage-summary-title">本关用时</div>
+            <div class="damage-row">
+                <span>Mission 4 Assault</span>
+                <span class="damage-value">${elapsed}s</span>
+            </div>
+        `;
+        return;
+    }
+
     const stats = weaponDamageStats
         .filter(stat => stat.totalDamage > 0)
         .slice()
@@ -1030,6 +1263,10 @@ function createEnemyFromConfig(enemyConfig) {
         enemyMesh = createHoverArmorEnemy();
     } else if (enemyConfig.modelType === 'wheelbarrow') {
         enemyMesh = createWheelbarrowModel();
+    } else if (enemyConfig.modelType === 'chopper') {
+        enemyMesh = createAttackUnitModel('chopper');
+    } else if (enemyConfig.modelType === 'finalBossAlpha') {
+        enemyMesh = createAttackUnitModel('finalBossAlpha');
     } else if (enemyConfig.modelType === 'portalA') {
         enemyMesh = createPortalAEnemy();
     } else if (enemyConfig.modelType === 'portalB') {
@@ -1094,6 +1331,230 @@ function getPortalConfigForLevel(level, modelType) {
     };
 }
 
+function createAttackBaseHpDisplay() {
+    if (attackBaseHpGroup) {
+        scene.remove(attackBaseHpGroup);
+    }
+    attackBaseHpGroup = new THREE.Group();
+    attackBaseHpPips = [];
+    const canvas = document.createElement('canvas');
+    canvas.width = ATTACK_BASE_HP_BAR_ASSETS.canvasWidth;
+    canvas.height = ATTACK_BASE_HP_BAR_ASSETS.canvasHeight;
+    const texture = new THREE.CanvasTexture(canvas);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthWrite: false
+    }));
+    sprite.scale.set(7.2, 1.42, 1);
+    sprite.userData.canvas = canvas;
+    sprite.userData.ctx = canvas.getContext('2d');
+    sprite.userData.texture = texture;
+    attackBaseHpGroup.add(sprite);
+    attackBaseHpPips.push(sprite);
+    attackBaseHpGroup.position.copy(castle.position).add(new THREE.Vector3(0, 3.95, 0));
+    scene.add(attackBaseHpGroup);
+    updateAttackBaseHpDisplay();
+}
+
+function updateAttackBaseHpDisplay() {
+    if (!attackBaseHpGroup) return;
+    attackBaseHpGroup.position.copy(castle.position).add(new THREE.Vector3(0, 3.95, 0));
+    attackBaseHpGroup.lookAt(camera.position);
+    const sprite = attackBaseHpPips[0];
+    if (!sprite || !sprite.userData.ctx) return;
+    const totalHp = (LEVELS[currentLevel] && LEVELS[currentLevel].opponentBaseHp) || 5;
+    const ctx = sprite.userData.ctx;
+    const canvas = sprite.userData.canvas;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'rgba(6, 8, 16, 0.72)';
+    ctx.fillRect(10, 14, 340, 48);
+    ctx.strokeStyle = 'rgba(255,255,255,0.72)';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(10, 14, 340, 48);
+    const gap = 16;
+    const cellW = (320 - gap * (totalHp - 1)) / totalHp;
+    for (let i = 0; i < totalHp; i++) {
+        const x = 20 + i * (cellW + gap);
+        const filled = i < lives;
+        ctx.fillStyle = filled ? '#ff4fd8' : '#26313c';
+        ctx.fillRect(x, 24, cellW, 28);
+        ctx.fillStyle = filled ? 'rgba(255,255,255,0.38)' : 'rgba(255,255,255,0.08)';
+        ctx.fillRect(x, 24, cellW, 8);
+    }
+    sprite.userData.texture.needsUpdate = true;
+}
+
+function setupAttackModeDefense() {
+    const cfg = LEVELS[currentLevel];
+    if (!cfg || !cfg.enemyTowers) return;
+    cfg.enemyTowers.forEach((towerConfig, index) => {
+        const padGroup = createAttackTowerSlotPad(towerConfig.x, towerConfig.z);
+        if (typeof activeMapRoot !== 'undefined' && activeMapRoot) {
+            activeMapRoot.add(padGroup);
+        } else {
+            scene.add(padGroup);
+        }
+        const model = createWeaponModel(towerConfig.type);
+        model.position.set(towerConfig.x, 0.32, towerConfig.z);
+        model.scale.setScalar(0.94);
+        scene.add(model);
+        const weaponConfig = getWeaponConfig(towerConfig.type);
+        weapons.push({
+            mesh: model,
+            padMesh: padGroup,
+            type: towerConfig.type,
+            damageStat: null,
+            basePosition: model.position.clone(),
+            lastFire: index * 350,
+            fireInterval: weaponConfig.fireIntervalMs,
+            burstCount: 0,
+            burstTotal: weaponConfig.burstTotal || 1,
+            isEnemyTower: true
+        });
+    });
+}
+
+function createAttackTowerSlotPad(x, z) {
+    const group = new THREE.Group();
+    group.name = 'attack-tower-pad';
+    group.userData.attackTowerPad = true;
+    group.position.set(x, 0.16, z);
+    const pad = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.92, 1.05, 0.12, 32),
+        new THREE.MeshPhongMaterial({
+            color: 0x132f38,
+            emissive: 0x00d2d3,
+            emissiveIntensity: 0.45,
+            transparent: true,
+            opacity: 0.88,
+            shininess: 80
+        })
+    );
+    const padRing = new THREE.Mesh(
+        new THREE.TorusGeometry(1.03, 0.06, 8, 36),
+        new THREE.MeshBasicMaterial({ color: 0x29f2ff, transparent: true, opacity: 0.82 })
+    );
+    const core = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.68, 0.78, 0.32, 20),
+        new THREE.MeshPhongMaterial({
+            color: 0x5f747a,
+            emissive: 0x12333a,
+            emissiveIntensity: 0.42,
+            shininess: 70
+        })
+    );
+    pad.position.y = -0.17;
+    padRing.rotation.x = Math.PI / 2;
+    padRing.position.y = 0.08;
+    core.position.y = 0.05;
+    group.add(pad, padRing, core);
+    return group;
+}
+
+function setupAttackModeLevel() {
+    setupAttackModeDefense();
+    createAttackBaseHpDisplay();
+}
+
+function showAttackIncomeText(amount) {
+    const pop = document.createElement('div');
+    pop.className = 'attack-income-pop';
+    pop.textContent = `+${amount}`;
+    document.body.appendChild(pop);
+    window.setTimeout(() => pop.remove(), 1100);
+}
+
+function updateAttackCountdownUI() {
+    const timerItem = document.getElementById('timerItem');
+    const timerVal = document.getElementById('timerVal');
+    if (!timerItem || !timerVal) return;
+    timerItem.style.display = isAttackMode() ? '' : 'none';
+    timerVal.textContent = Math.max(0, Math.ceil(attackTimeRemainingMs / 1000));
+    timerVal.style.color = attackTimeRemainingMs <= 10000 ? '#e74c3c' : '';
+}
+
+function updateAttackModeIncome(time) {
+    const cfg = LEVELS[currentLevel] || {};
+    const interval = cfg.incomeIntervalMs || 5000;
+    const amount = cfg.incomeAmount || 30;
+    if (!lastAttackIncomeTime) {
+        lastAttackIncomeTime = time;
+        return;
+    }
+    if (time - lastAttackIncomeTime >= interval) {
+        const ticks = Math.min(3, Math.floor((time - lastAttackIncomeTime) / interval));
+        score += amount * ticks;
+        lastAttackIncomeTime += interval * ticks;
+        showAttackIncomeText(amount * ticks);
+        updateUI();
+    }
+}
+
+function updateCardIncome(time) {
+    if (isAttackMode() || typeof getCardIncomePerSecond !== 'function') return;
+    const amount = getCardIncomePerSecond();
+    if (amount <= 0) {
+        lastCardIncomeTime = time;
+        return;
+    }
+    if (!lastCardIncomeTime) {
+        lastCardIncomeTime = time;
+        return;
+    }
+    if (time - lastCardIncomeTime >= 1000) {
+        const ticks = Math.min(5, Math.floor((time - lastCardIncomeTime) / 1000));
+        score += amount * ticks;
+        lastCardIncomeTime += 1000 * ticks;
+        if (typeof showCardIncomeText === 'function') showCardIncomeText(amount * ticks);
+        updateUI();
+    }
+}
+
+function getAdjustedWeaponFireInterval(w) {
+    const multiplier = typeof getCardFireIntervalMultiplier === 'function'
+        ? getCardFireIntervalMultiplier(w)
+        : 1;
+    return Math.max(90, w.fireInterval * multiplier);
+}
+
+function getAdjustedAirstrikeDamage(baseDamage) {
+    const bonus = typeof getCardDamageBonus === 'function'
+        ? getCardDamageBonus({ type: 4 })
+        : 0;
+    return baseDamage + bonus;
+}
+
+function handleUnitReachedBase(enemy, index) {
+    const hitDamage = enemy && enemy.isBoss ? 5 : 1;
+    const baseEventPosition = isAttackMode()
+        ? castle.position.clone().add(new THREE.Vector3(0, 0.2, 0))
+        : enemy.mesh.position.clone();
+    if (typeof removeEnemyFromBodyList === 'function') {
+        removeEnemyFromBodyList(enemy.mesh);
+    }
+    scene.remove(enemy.mesh);
+    enemies.splice(index, 1);
+    lives = Math.max(0, lives - hitDamage);
+    shakeCastle(300);
+    flashBaseAlert();
+    playTone(isAttackMode() ? 680 : 150, isAttackMode() ? 'triangle' : 'sawtooth', isAttackMode() ? 0.18 : 0.3, isAttackMode() ? 0.06 : 0.08);
+    if (isAttackMode()) {
+        if (typeof announceBattleEvent === 'function') {
+            announceBattleEvent('enemy-base-hit', t('enemyBaseHit', { hp: lives }), baseEventPosition, 500);
+        }
+        updateAttackBaseHpDisplay();
+        updateUI();
+        if (lives <= 0) endGame(true);
+        return;
+    }
+    if (typeof announceBattleEvent === 'function') {
+        announceBattleEvent('player-base-hit', t('baseHit', { hp: lives }), baseEventPosition, 700);
+    }
+    updateUI();
+    if (lives <= 0) endGame(false);
+}
+
 function getScheduledPortalPath(portalEvent) {
     if (portalEvent && portalEvent.path === 'alternate' && alternateEnemyPathPoints.length > 1) {
         return alternateEnemyPathPoints;
@@ -1119,6 +1580,9 @@ function updateScheduledLevelPortals(time) {
             portalLocation.pathIdx,
             { currentTime: time }
         );
+        if (typeof announceBattleEvent === 'function') {
+            announceBattleEvent('portal-open-' + portalEvent.modelType, portalEvent.modelType === 'portalB' ? t('airPortalOpen') : t('portalOpen'), portalLocation.position, 1400);
+        }
         levelPortalSpawnCount++;
     }
 }
@@ -1145,6 +1609,9 @@ function createEnemyEntityFromConfig(spawnConfig, enemyPath, spawnPosition, path
         health: spawnConfig.health,
         speed: getEnemySpeed(spawnConfig),
         isDrone: !!spawnConfig.isDrone,
+        isBoss: !!spawnConfig.isBoss,
+        isFlyingBoss: !!spawnConfig.isFlyingBoss,
+        flightBaseY: spawnConfig.flightBaseY,
         modelType: spawnConfig.modelType,
         enemyCategory: category,
         isPortal: category === 'portal'
@@ -1165,6 +1632,16 @@ function createEnemyEntityFromConfig(spawnConfig, enemyPath, spawnPosition, path
         const hpBarContainer = new THREE.Group();
         enemyMesh.add(hpBarContainer);
         addHpBarToBoss(hpBarContainer, e.maxHealth, spawnConfig.hpBarY || 2.4);
+        e.hpBar = hpBarContainer.userData.hpBar;
+        e.hpBarContainer = hpBarContainer;
+    } else if (e.isBoss) {
+        e.maxHealth = e.health;
+        if (e.isFlyingBoss && e.flightBaseY !== undefined) {
+            enemyMesh.position.y = e.flightBaseY;
+        }
+        const hpBarContainer = new THREE.Group();
+        enemyMesh.add(hpBarContainer);
+        addHpBarToBoss(hpBarContainer, e.maxHealth, spawnConfig.hpBarY || (e.isFlyingBoss ? 4.4 : 4.2));
         e.hpBar = hpBarContainer.userData.hpBar;
         e.hpBarContainer = hpBarContainer;
     } else {
@@ -1239,7 +1716,7 @@ function gameLoop(time) {
         castleShakeTime -= 16; // 约 60fps
         const shakeIntensity = 0.15 * (castleShakeTime / 300);
         // 震动摄像机来模拟屏幕震动效果
-        camera.position.x = Math.sin(time * 0.05) * shakeIntensity;
+        camera.position.x = baseCameraX + Math.sin(time * 0.05) * shakeIntensity;
         camera.position.y = baseCameraY + Math.cos(time * 0.07) * shakeIntensity * 0.5;
     } else {
         // 恢复摄像机正常位置
@@ -1268,41 +1745,57 @@ function gameLoop(time) {
         return;
     }
     
-    const delta = time - lastTime;
+    const delta = lastTime ? time - lastTime : 0;
     lastTime = time;
     
-    // 敌人生成
-    spawnTimer += delta;
-    if (spawnTimer > 400 && spawnedCount < LEVELS[currentLevel].enemies) {
-        spawnTimer = 0;
-        spawnedCount++;
+    if (isAttackMode()) {
+        attackTimeRemainingMs = Math.max(0, attackTimeRemainingMs - delta);
+        updateAttackCountdownUI();
+        if (attackTimeRemainingMs <= 0) {
+            updateUI();
+            endGame(false);
+            renderer.render(scene, camera);
+            return;
+        }
+        updateAttackModeIncome(time);
+        updateAttackBaseHpDisplay();
+    } else {
+        // 敌人生成
+        updateCardIncome(time);
+        spawnTimer += delta;
+        if (spawnTimer > 400 && spawnedCount < LEVELS[currentLevel].enemies) {
+            spawnTimer = 0;
+            spawnedCount++;
+            
+            const spawnConfig = chooseEnemyConfig(currentLevel);
+            const enemyPath = (currentLevel === 3 && alternateEnemyPathPoints.length > 0 && Math.random() < (LEVELS[3].altEnemyChance || 0))
+                ? alternateEnemyPathPoints
+                : pathPoints;
+            createEnemyEntityFromConfig(
+                spawnConfig,
+                enemyPath,
+                enemyPath[0],
+                0,
+                { currentTime: time }
+            );
+        } else if (spawnedCount >= LEVELS[currentLevel].enemies && enemies.length === 0 && !bossSpawned) {
+            bossSpawned = true;
+            const warningText = currentLevel === 3 ? t('bossAlpha') : t('bossIncoming');
+            queueBossSpawnWarning(warningText, () => spawnBoss());
+        }
         
-        const spawnConfig = chooseEnemyConfig(currentLevel);
-        const enemyPath = (currentLevel === 3 && alternateEnemyPathPoints.length > 0 && Math.random() < (LEVELS[3].altEnemyChance || 0))
-            ? alternateEnemyPathPoints
-            : pathPoints;
-        createEnemyEntityFromConfig(
-            spawnConfig,
-            enemyPath,
-            enemyPath[0],
-            0,
-            { currentTime: time }
-        );
-    } else if (spawnedCount >= LEVELS[currentLevel].enemies && enemies.length === 0 && !bossSpawned) {
-        bossSpawned = true;
-        const warningText = currentLevel === 3 ? 'FINAL BOSS' : 'BOSS INCOMING';
-        queueBossSpawnWarning(warningText, () => spawnBoss());
-    }
-    
-    // 第三关特殊逻辑：第一个 Boss 在小兵出一半时出场
-    if ((currentLevel === 2 || currentLevel === 3) && !firstBossSpawned && spawnedCount >= Math.floor(LEVELS[currentLevel].enemies / 2)) {
-        firstBossSpawned = true;
-        const midBossText = currentLevel === 2 ? 'CHOPPER BOSS' : 'BOSS ALPHA';
-        queueBossSpawnWarning(midBossText, () => spawnFirstBoss());
+        // 第三关特殊逻辑：第一个 Boss 在小兵出一半时出场
+        if ((currentLevel === 2 || currentLevel === 3) && !firstBossSpawned && spawnedCount >= Math.floor(LEVELS[currentLevel].enemies / 2)) {
+            firstBossSpawned = true;
+            const midBossText = currentLevel === 2 ? t('chopperBoss') : t('bossAlpha');
+            queueBossSpawnWarning(midBossText, () => spawnFirstBoss());
+        }
     }
     
     // 敌人移动与动画 - 使用新的 AI 系统
-    updateScheduledLevelPortals(time);
+    if (!isAttackMode()) {
+        updateScheduledLevelPortals(time);
+    }
     updatePortalEnemies(time);
 
     if (typeof updateEnemyAI === 'function') {
@@ -1317,17 +1810,7 @@ function gameLoop(time) {
             const enemyPath = e.pathPoints || pathPoints;
             // 如果已到达最后一个路点，说明到达基地
             if (e.pathIdx >= enemyPath.length - 1) {
-                if (typeof removeEnemyFromBodyList === 'function') {
-                    removeEnemyFromBodyList(e.mesh);
-                }
-                scene.remove(e.mesh);
-                enemies.splice(i, 1);
-                lives -= e.isBoss ? 5 : 1;
-                shakeCastle(300);
-                flashBaseAlert();
-                playTone(150, 'sawtooth', 0.3, 0.08);
-                updateUI();
-                if (lives <= 0) endGame(false);
+                handleUnitReachedBase(e, i);
             }
         }
     } else {
@@ -1349,17 +1832,7 @@ function gameLoop(time) {
             if (dist < 0.5) {
                 e.pathIdx++;
                 if (e.pathIdx >= enemyPath.length - 1) {
-                    if (typeof removeEnemyFromBodyList === 'function') {
-                        removeEnemyFromBodyList(e.mesh);
-                    }
-                    scene.remove(e.mesh);
-                    enemies.splice(i, 1);
-                    lives -= e.isBoss ? 5 : 1;
-                    shakeCastle(300);
-                    flashBaseAlert();
-                    playTone(150, 'sawtooth', 0.3, 0.08);
-                    updateUI();
-                    if (lives <= 0) endGame(false);
+                    handleUnitReachedBase(e, i);
                     continue;
                 }
             } else {
@@ -1430,11 +1903,12 @@ function gameLoop(time) {
             }
         }
         
+        const activeFireInterval = getAdjustedWeaponFireInterval(w);
         if (w.type === 2) {
             // Rail: 连发 6 发之后有 1 秒间隔
             if (w.burstCount < w.burstTotal) {
                 // 连发期间每发间隔约 217ms (1300ms / 6)
-                const burstInterval = w.fireInterval / w.burstTotal;
+                const burstInterval = activeFireInterval / w.burstTotal;
                 if (time - w.lastFire > burstInterval) {
                     const target = getTargetForWeapon(w);
                     if (target) {
@@ -1445,13 +1919,13 @@ function gameLoop(time) {
                 }
             } else {
                 // 等待 1.3 秒后重置连发计数
-                if (time - w.lastFire > w.fireInterval) {
+                if (time - w.lastFire > activeFireInterval) {
                     w.burstCount = 0;
                 }
             }
         } else if (w.type === 3) {
             // Tesla: 激光攻击，充能效果
-            if (time - w.lastFire > w.fireInterval) {
+            if (time - w.lastFire > activeFireInterval) {
                 const target = getTargetForWeapon(w);
                 if (target) {
                     w.lastFire = time;
@@ -1523,7 +1997,7 @@ function gameLoop(time) {
             }
         } else {
             // Pulse (type 1): 普通攻击逻辑
-            if (time - w.lastFire > w.fireInterval) {
+            if (time - w.lastFire > activeFireInterval) {
                 const target = getTargetForWeapon(w);
                 if (target) {
                     w.lastFire = time;
@@ -1646,13 +2120,19 @@ function gameLoop(time) {
 function endGame(victory) {
     gameOver = true;
     setGameDimmed(true);
+    if (typeof updateCardPanelUI === 'function') updateCardPanelUI();
     const msgEl = document.getElementById('msg');
     const endBtn = document.getElementById('endBtn');
     const endScreen = document.getElementById('endScreen');
     
     // 计算关卡得分并保存到排行榜
-    const clearTime = Math.floor((Date.now() - levelStartTime) / 1000);
-    const killScore = score - (isDebugMode ? 1000 : (currentLevel === 1 ? 3 : (currentLevel === 2 ? 15 : 30)));
+    const levelConfig = LEVELS[currentLevel] || {};
+    const timeLimitMs = levelConfig.timeLimitMs || 0;
+    const clearTime = isAttackMode() && timeLimitMs
+        ? Math.ceil(Math.max(0, timeLimitMs - attackTimeRemainingMs) / 1000)
+        : Math.floor((Date.now() - levelStartTime) / 1000);
+    const startingScore = levelConfig.startingScore !== undefined ? levelConfig.startingScore : (isDebugMode ? 1000 : (currentLevel === 1 ? 3 : (currentLevel === 2 ? 15 : 30)));
+    const killScore = score - startingScore;
     const levelScore = calculateLevelScore(currentLevel, lives, killScore, victory);
     
     const leaderboardEntry = {
@@ -1664,6 +2144,8 @@ function endGame(victory) {
         bonusScore: lives * 20,
         isVictory: victory,
         clearTime: clearTime,
+        attackUnitsDeployed: isAttackMode() ? attackUnitsDeployed : undefined,
+        attackGoldSpent: isAttackMode() ? attackGoldSpent : undefined,
         timestamp: new Date().toISOString()
     };
     
@@ -1678,6 +2160,9 @@ function endGame(victory) {
         } else if (currentLevel === 2) {
             msgEl.innerText = "🎉 MISSION 2 COMPLETE!";
             endBtn.innerText = "MISSION 3";
+        } else if (currentLevel === 3) {
+            msgEl.innerText = "🎀 MISSION 3 COMPLETE!";
+            endBtn.innerText = "MISSION 4";
         } else {
             msgEl.innerText = "🏆 CAMPAIGN CLEARED!";
             endBtn.innerText = "REPLAY";
@@ -1685,13 +2170,16 @@ function endGame(victory) {
         playTone(800, 'sine', 0.2, 0.1);
         setTimeout(() => playTone(1000, 'sine', 0.3, 0.1), 200);
     } else {
-        msgEl.innerText = "💀 GAME OVER";
+        msgEl.innerText = isAttackMode() ? "⏱ TIME UP" : "💀 GAME OVER";
         endBtn.innerText = "RETRY";
         playTone(150, 'sawtooth', 0.5, 0.1);
     }
     
     renderDamageSummary();
     endScreen.style.display = 'block';
+    if (typeof showEndLevelUI === 'function') {
+        showEndLevelUI(victory, currentLevel, isAttackMode());
+    }
 }
 
 // ==================== 窗口大小调整 ====================

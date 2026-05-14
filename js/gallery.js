@@ -109,6 +109,13 @@ function getGalleryModels(type) {
             { name: 'Airstrike', build: () => createWeaponModel(4) }
         ];
     }
+    if (type === 'cards') {
+        return [
+            { name: 'Spade J', category: '+25% Fire Rate', build: () => createPlayingCardModel('J') },
+            { name: 'Spade Q', category: '+5 Damage / +15% Fire Rate', build: () => createPlayingCardModel('Q') },
+            { name: 'Spade K', category: '+10 Damage / +20% Fire Rate / +5 PTS/s', build: () => createPlayingCardModel('K') }
+        ];
+    }
 
     return [
         { name: '普通机器人', category: '步兵', soundModelType: 'robot', build: () => createRobotEnemy(false) },
@@ -273,8 +280,9 @@ function showModelGallery(type) {
 
     clearGalleryPreviews();
     grid.innerHTML = '';
-    title.textContent = type === 'towers' ? '防御塔展示馆' : '敌方单位展示馆';
-    desc.textContent = type === 'towers' ? '当前可建造炮台模型' : '当前战役中出现的敌方单位与 Boss';
+    grid.className = type === 'cards' ? 'model-grid card-model-grid' : 'model-grid';
+    title.textContent = type === 'towers' ? t('towerGallery') : (type === 'cards' ? t('cardGallery') : t('enemyGallery'));
+    desc.textContent = type === 'towers' ? (currentLanguage === 'en' ? 'Buildable defense models' : '当前可建造炮台模型') : (type === 'cards' ? (currentLanguage === 'en' ? 'Spade J/Q/K defense cards' : '黑桃 J/Q/K 防御卡牌') : (currentLanguage === 'en' ? 'Enemy units and bosses in the campaign' : '当前战役中出现的敌方单位与 Boss'));
     gallery.style.display = 'flex';
 
     getGalleryModels(type).forEach(item => addPreviewCard(grid, item));
@@ -303,9 +311,15 @@ function saveToLeaderboard(entry) {
     try {
         const leaderboard = getLeaderboard();
         leaderboard.push(entry);
-        // 按分数降序排序，保留前 10 名
-        leaderboard.sort((a, b) => b.score - a.score);
-        leaderboard.splice(10);
+        // Keep enough history so every mission can be represented on the home leaderboard.
+        leaderboard.sort((a, b) => {
+            if (a.level !== b.level) return a.level - b.level;
+            if (b.score !== a.score) return b.score - a.score;
+            return new Date(b.timestamp) - new Date(a.timestamp);
+        });
+        if (leaderboard.length > 200) {
+            leaderboard.splice(200);
+        }
         localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(leaderboard));
         return true;
     } catch (e) {
@@ -315,6 +329,17 @@ function saveToLeaderboard(entry) {
 }
 
 function calculateLevelScore(level, remainingLives, killScore, isVictory) {
+    if (level === 4) {
+        if (!isVictory) return 0;
+        const cfg = (typeof LEVELS !== 'undefined' && LEVELS[4]) ? LEVELS[4] : {};
+        const timeLimitMs = cfg.timeLimitMs || 60000;
+        const remainingMs = typeof attackTimeRemainingMs !== 'undefined' ? Math.max(0, attackTimeRemainingMs) : 0;
+        const unitsUsed = typeof attackUnitsDeployed !== 'undefined' ? Math.max(0, attackUnitsDeployed) : 0;
+        const timeRatio = Math.max(0, Math.min(1, remainingMs / timeLimitMs));
+        const unitRatio = Math.max(0, Math.min(1, 1 - Math.max(0, unitsUsed - 3) / 17));
+        return Math.max(180, Math.min(300, Math.round(180 + timeRatio * 72 + unitRatio * 48)));
+    }
+
     // 基础分 = 剩余 HP × 20
     const bonusScore = Math.max(0, remainingLives * 20);
     // 总分 = 杀敌得分 + 关卡奖励分
@@ -330,22 +355,48 @@ function showLeaderboard() {
     tbody.innerHTML = '';
     
     if (leaderboard.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;">暂无记录，开始游戏创造你的第一个成绩吧！</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;">${currentLanguage === 'en' ? 'No records yet. Start a run and set the first score.' : '暂无记录，开始游戏创造你的第一个成绩吧！'}</td></tr>`;
     } else {
-        leaderboard.forEach((entry, index) => {
-            const row = document.createElement('tr');
-            const date = new Date(entry.timestamp);
-            const timeStr = `${Math.floor(date.getMonth() + 1)}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-            
-            row.innerHTML = `
-                <td>${index + 1}</td>
-                <td>Mission ${entry.level}</td>
-                <td>${entry.playerName}</td>
-                <td><strong>${entry.score}</strong></td>
-                <td>${entry.remainingLives} HP</td>
-                <td>${timeStr}</td>
-            `;
-            tbody.appendChild(row);
+        [1, 2, 3, 4].forEach(level => {
+            const levelEntries = leaderboard
+                .filter(entry => entry.level === level)
+                .sort((a, b) => {
+                    if (b.score !== a.score) return b.score - a.score;
+                    return new Date(b.timestamp) - new Date(a.timestamp);
+                })
+                .slice(0, 10);
+
+            const sectionRow = document.createElement('tr');
+            sectionRow.className = 'leaderboard-section-row';
+            sectionRow.innerHTML = `<td colspan="6">Mission ${level}</td>`;
+            tbody.appendChild(sectionRow);
+
+            if (levelEntries.length === 0) {
+                const emptyRow = document.createElement('tr');
+                emptyRow.className = 'leaderboard-empty-row';
+                emptyRow.innerHTML = `<td colspan="6">${currentLanguage === 'en' ? 'No clears yet' : '暂无通关记录'}</td>`;
+                tbody.appendChild(emptyRow);
+                return;
+            }
+
+            levelEntries.forEach((entry, index) => {
+                const row = document.createElement('tr');
+                const date = new Date(entry.timestamp);
+                const timeStr = `${Math.floor(date.getMonth() + 1)}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+                const detail = entry.level === 4
+                    ? `${entry.clearTime || 0}s / ${entry.attackUnitsDeployed || 0}${currentLanguage === 'en' ? ' units' : '兵'}`
+                    : `${entry.remainingLives} HP`;
+                
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>Mission ${entry.level}</td>
+                    <td>${entry.playerName}</td>
+                    <td><strong>${entry.score}</strong></td>
+                    <td>${detail}</td>
+                    <td>${timeStr}</td>
+                `;
+                tbody.appendChild(row);
+            });
         });
     }
     
@@ -357,7 +408,7 @@ function closeLeaderboard() {
 }
 
 function clearLeaderboard() {
-    if (confirm('确定要清空所有排行榜记录吗？此操作不可恢复。')) {
+    if (confirm(currentLanguage === 'en' ? 'Clear all leaderboard records? This cannot be undone.' : '确定要清空所有排行榜记录吗？此操作不可恢复。')) {
         localStorage.removeItem(LEADERBOARD_KEY);
         showLeaderboard();
     }

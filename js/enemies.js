@@ -278,7 +278,7 @@ function createHeavyRobotEnemy() {
         legGroup.position.set(side * 0.24, 0.88, -0.05);
 
         const thighGroup = new THREE.Group();
-        thighGroup.rotation.x = 0.42;
+        thighGroup.rotation.x = 0.28;
         legGroup.add(thighGroup);
 
         const upperLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.1, 0.5, 8), bodyMat);
@@ -291,8 +291,8 @@ function createHeavyRobotEnemy() {
         thighGroup.add(knee);
 
         const lowerLegGroup = new THREE.Group();
-        lowerLegGroup.position.set(0, -0.5, 0);
-        lowerLegGroup.rotation.x = -0.72;
+        lowerLegGroup.position.set(0, -0.5, 0.06);
+        lowerLegGroup.rotation.x = -0.42;
         thighGroup.add(lowerLegGroup);
 
         const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.13, 0.58, 8), jointMat);
@@ -300,7 +300,7 @@ function createHeavyRobotEnemy() {
         lowerLegGroup.add(shin);
 
         const shinGuard = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.38, 0.09), armorMat);
-        shinGuard.position.set(0, -0.3, 0.08);
+        shinGuard.position.set(0, -0.3, 0.14);
         lowerLegGroup.add(shinGuard);
 
         const ankle = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), armorMat);
@@ -308,8 +308,8 @@ function createHeavyRobotEnemy() {
         lowerLegGroup.add(ankle);
 
         const footGroup = new THREE.Group();
-        footGroup.position.set(0, -0.67, 0.12);
-        footGroup.rotation.x = 0.28;
+        footGroup.position.set(0, -0.67, 0.18);
+        footGroup.rotation.x = 0.18;
         lowerLegGroup.add(footGroup);
 
         const sole = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.09, 0.48), armorMat);
@@ -770,7 +770,7 @@ function createPortalEnemyModel(options = {}) {
         swirl,
         beacons,
         portalPhase: Math.random() * Math.PI * 2,
-        hasPhysics: true
+        hasPhysics: false
     };
 
     return group;
@@ -826,6 +826,14 @@ function animateEnemy(e, time) {
             mesh.userData.head.position.y = mesh.userData.baseHeadY + Math.abs(stride) * 0.035;
         }
         if (mesh.userData.mainRotor || mesh.userData.shark || mesh.userData.gorilla) return;
+    }
+
+    if (mesh.userData.mainRotor) {
+        mesh.userData.mainRotor.rotation.y += 0.48;
+        if (mesh.userData.tailRotor) {
+            mesh.userData.tailRotor.rotation.z += 0.72;
+        }
+        return;
     }
     
     // 无人机动画
@@ -884,12 +892,12 @@ function animateEnemy(e, time) {
             const rightStride = Math.sin(mesh.userData.walkPhase + Math.PI);
             const leftLift = Math.max(0, leftStride);
             const rightLift = Math.max(0, rightStride);
-            mesh.userData.leftThighGroup.rotation.x = 0.42 + leftStride * 0.18;
-            mesh.userData.rightThighGroup.rotation.x = 0.42 + rightStride * 0.18;
-            mesh.userData.leftLowerLegGroup.rotation.x = -0.78 + leftLift * 0.42;
-            mesh.userData.rightLowerLegGroup.rotation.x = -0.78 + rightLift * 0.42;
-            mesh.userData.leftFootGroup.rotation.x = 0.34 - leftLift * 0.24;
-            mesh.userData.rightFootGroup.rotation.x = 0.34 - rightLift * 0.24;
+            mesh.userData.leftThighGroup.rotation.x = 0.28 + leftStride * 0.16;
+            mesh.userData.rightThighGroup.rotation.x = 0.28 + rightStride * 0.16;
+            mesh.userData.leftLowerLegGroup.rotation.x = -0.44 + leftLift * 0.24;
+            mesh.userData.rightLowerLegGroup.rotation.x = -0.44 + rightLift * 0.24;
+            mesh.userData.leftFootGroup.rotation.x = 0.2 - leftLift * 0.14;
+            mesh.userData.rightFootGroup.rotation.x = 0.2 - rightLift * 0.14;
             mesh.userData.leftGunMount.rotation.y = Math.sin(mesh.userData.walkPhase * 0.8) * 0.035;
             mesh.userData.rightGunMount.rotation.y = -Math.sin(mesh.userData.walkPhase * 0.8) * 0.035;
             mesh.userData.leftArm.rotation.x = -0.03 + leftStride * 0.025;
