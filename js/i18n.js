@@ -1,6 +1,6 @@
-// UI language strings and version metadata.
+﻿// UI language strings and version metadata.
 
-var APP_VERSION = 'V127';
+var APP_VERSION = 'V162';
 var currentLanguage = localStorage.getItem('castle_defense_language') || 'zh';
 
 var GAME_I18N = {
@@ -8,7 +8,7 @@ var GAME_I18N = {
         versionLabel: APP_VERSION,
         menuKicker: APP_VERSION + ' 战术防线',
         title: 'Castle Defend',
-        menuDesc: '部署炮塔、空袭与卡牌，在四个任务中守住基地并完成反攻。',
+        menuDesc: '部署炮塔、空袭与卡牌，在任务中守住基地并完成反攻。',
         startGame: '开始游戏',
         cardGallery: '卡片展示馆',
         debugMode: 'Debug 模式',
@@ -61,7 +61,7 @@ var GAME_I18N = {
         versionLabel: APP_VERSION,
         menuKicker: APP_VERSION + ' Tactical Defense',
         title: 'Castle Defend',
-        menuDesc: 'Build towers, call airstrikes, play cards, and clear four missions.',
+        menuDesc: 'Build towers, call airstrikes, play cards, and clear the missions.',
         startGame: 'Start Game',
         cardGallery: 'Card Gallery',
         debugMode: 'Debug Mode',
@@ -145,3 +145,5 @@ function applyLanguage() {
 }
 
 window.addEventListener('DOMContentLoaded', applyLanguage);
+
+

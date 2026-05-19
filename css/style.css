@@ -131,6 +131,12 @@ body {
     align-items: center;
 }
 
+.attack-unit-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
 #bottom-nav .weapon-btn {
     position: relative;
     flex: 0 0 auto; 
@@ -514,6 +520,8 @@ body {
     display: none; 
     z-index: 150; 
     width: min(520px, calc(100vw - 26px));
+    max-height: calc(100dvh - 28px);
+    overflow: auto;
     padding: 18px;
     border: 2px solid rgba(241, 196, 15, 0.82);
     border-radius: 8px;
@@ -586,7 +594,7 @@ body {
 
 #damageSummary {
     width: min(460px, 92vw);
-    max-height: 36vh;
+    max-height: min(32vh, 230px);
     overflow: auto;
     margin: 0 auto;
     padding: 12px;
@@ -595,6 +603,27 @@ body {
     border-radius: 8px;
     color: #f8fafc;
     box-shadow: 0 16px 50px rgba(0,0,0,0.35);
+}
+
+@media (max-width: 560px) {
+    #endScreen {
+        padding: 14px;
+    }
+
+    #msg {
+        font-size: 24px;
+        margin-bottom: 12px;
+    }
+
+    #damageSummary {
+        max-height: 24vh;
+        padding: 10px;
+    }
+
+    .end-action {
+        min-height: 44px;
+        font-size: 14px;
+    }
 }
 
 .damage-summary-title {
@@ -858,6 +887,129 @@ body.game-dimmed #gameCanvas {
 
 .playing-card.compact .card-suit {
     font-size: 25px;
+}
+
+.card-support-helicopter {
+    position: absolute;
+    left: 50%;
+    bottom: 9px;
+    width: 34px;
+    height: 18px;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.playing-card.compact .card-support-helicopter {
+    bottom: 3px;
+    width: 28px;
+    height: 14px;
+}
+
+.card-support-helicopter .heli-body,
+.card-support-helicopter .heli-tail,
+.card-support-helicopter .heli-rotor {
+    position: absolute;
+    display: block;
+}
+
+.card-support-helicopter .heli-body {
+    left: 8px;
+    bottom: 1px;
+    width: 15px;
+    height: 9px;
+    border-radius: 7px 9px 5px 5px;
+    background: linear-gradient(135deg, #ffffff 0%, #dff8ff 48%, #36a7ff 49%, #1a6dcb 100%);
+    box-shadow: inset 0 -1px 0 rgba(8, 38, 78, 0.35);
+}
+
+.card-support-helicopter .heli-tail {
+    right: 2px;
+    bottom: 5px;
+    width: 12px;
+    height: 3px;
+    border-radius: 999px;
+    background: #0d2f58;
+    transform: rotate(-7deg);
+}
+
+.card-support-helicopter .heli-rotor {
+    left: 4px;
+    top: 1px;
+    width: 25px;
+    height: 3px;
+    border-radius: 999px;
+    background: #0d2f58;
+    box-shadow: 0 0 5px rgba(55, 190, 255, 0.75);
+}
+
+.card-support-robot {
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    width: 28px;
+    height: 31px;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.playing-card.compact .card-support-robot {
+    bottom: 3px;
+    width: 23px;
+    height: 25px;
+}
+
+.card-support-robot span {
+    position: absolute;
+    display: block;
+}
+
+.card-support-robot .robot-head {
+    left: 8px;
+    top: 1px;
+    width: 12px;
+    height: 8px;
+    border-radius: 5px 5px 3px 3px;
+    background: linear-gradient(145deg, #ffffff 0%, #e8f8ff 52%, #59d9ff 53%, #2ba8ff 100%);
+    box-shadow: inset 0 -1px 0 rgba(9, 43, 86, 0.35), 0 0 5px rgba(90, 220, 255, 0.65);
+}
+
+.card-support-robot .robot-body {
+    left: 7px;
+    top: 10px;
+    width: 14px;
+    height: 12px;
+    border-radius: 3px;
+    background: linear-gradient(145deg, #f7fcff 0%, #d8ecf8 58%, #1c3345 59%, #142333 100%);
+}
+
+.card-support-robot .robot-launcher {
+    left: 13px;
+    top: 6px;
+    width: 20px;
+    height: 5px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #122638, #f7fcff 42%, #42d9ff 64%, #18334a);
+    box-shadow: 0 0 5px rgba(76, 236, 255, 0.62);
+    transform: rotate(14deg);
+    transform-origin: 3px 50%;
+}
+
+.card-support-robot .robot-leg {
+    top: 21px;
+    width: 4px;
+    height: 8px;
+    border-radius: 2px;
+    background: #1f3344;
+}
+
+.card-support-robot .robot-leg.left {
+    left: 8px;
+    transform: rotate(10deg);
+}
+
+.card-support-robot .robot-leg.right {
+    right: 8px;
+    transform: rotate(-10deg);
 }
 
 .card-price {

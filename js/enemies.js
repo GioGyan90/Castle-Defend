@@ -1760,18 +1760,20 @@ function createWheelbarrowModel() {
     });
     const matGlow = new THREE.MeshBasicMaterial({ color: 0xff793f });
     
-    // 单轮（大轮子）
+    // 单轮（大轮子）- 独立轮组，方便动画资产页单独调参
+    const wheelAssembly = new THREE.Group();
+    wheelAssembly.position.set(0, 0.65, 0);
+
     const wheelGeo = new THREE.CylinderGeometry(0.65, 0.65, 0.25, 16);
     const wheel = new THREE.Mesh(wheelGeo, matDark);
     wheel.rotation.z = Math.PI / 2;
-    wheel.position.set(0, 0.65, 0);
-    group.add(wheel);
+    wheelAssembly.add(wheel);
     
     // 轮毂盖 - 橙色
     const hubCap = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.28, 12), matOrange);
     hubCap.rotation.z = Math.PI / 2;
-    hubCap.position.set(0, 0.65, 0);
-    group.add(hubCap);
+    wheelAssembly.add(hubCap);
+    group.add(wheelAssembly);
     
     // 主车架 - 蓝色
     const frame = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 1.8), matBlue);
@@ -1844,7 +1846,9 @@ function createWheelbarrowModel() {
     group.userData = {
         wheelbarrow: true,
         cannonGroup,
+        wheelAssembly,
         wheel,
+        hubCap,
         hasPhysics: false
     };
     group.scale.setScalar(0.35); // Smaller enemies for mobile-first design

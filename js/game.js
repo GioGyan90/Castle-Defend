@@ -16,7 +16,9 @@ let selectedTacticalType = null;
 let isDebugMode = false;
 let isPaused = false;
 let levelPortalSpawnCount = 0;
-const enemies = [], bullets = [], weapons = [], particles = [], damageTexts = [], slots = [];
+let levelWaveStartTime = 0;
+let levelWaveRuntime = [];
+const enemies = [], bullets = [], weapons = [], particles = [], animationAssets = [], damageTexts = [], slots = [];
 const airstrikeBombs = [], airstrikeMarkers = [];
 let pathPoints = [];
 let alternateEnemyPathPoints = [];
@@ -30,6 +32,7 @@ let attackTimeRemainingMs = 0;
 let attackUnitsDeployed = 0;
 let attackGoldSpent = 0;
 let attackBossPurchased = {};
+let attackUnitButtonSignature = '';
 let attackBaseHpGroup = null;
 let attackBaseHpPips = [];
 const ATTACK_BASE_HP_BAR_ASSETS = {
@@ -201,6 +204,18 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.7));
 
 // Base model is defined separately; the map only controls endpoint placement.
 const castle = createSpaceBaseModel(THREE);
+window.CASTLE_DEFEND_RUNTIME = {
+    scene,
+    camera,
+    renderer,
+    castle,
+    enemies,
+    bullets,
+    weapons,
+    weaponDamageStats,
+    pathPoints,
+    alternateEnemyPathPoints
+};
 let castleShakeTime = 0; // 城堡震动计时器
 
 function shakeCastle(duration) {
@@ -245,11 +260,249 @@ function buildMap() {
     });
     pathPoints = mapState.pathPoints;
     alternateEnemyPathPoints = mapState.alternateEnemyPathPoints;
+    window.CASTLE_DEFEND_RUNTIME.pathPoints = pathPoints;
+    window.CASTLE_DEFEND_RUNTIME.alternateEnemyPathPoints = alternateEnemyPathPoints;
     castleShakeTime = 0; // 重置震动状态
 }
 
 function isAttackMode() {
-    return currentLevel === ATTACK_MODE_LEVEL;
+    const cfg = typeof LEVELS !== 'undefined' ? LEVELS[currentLevel] : null;
+    return !!(cfg && cfg.attackMode);
+}
+
+function hasEnemyWaveSchedule(levelConfig = LEVELS[currentLevel]) {
+    return !!(levelConfig && Array.isArray(levelConfig.enemyWaves) && levelConfig.enemyWaves.length > 0);
+}
+
+function getLevelEnemyTargetCount(levelConfig = LEVELS[currentLevel]) {
+    if (hasEnemyWaveSchedule(levelConfig)) {
+        return levelConfig.enemyWaves.reduce((total, wave) => total + (Number(wave.count) || 0), 0);
+    }
+    return Number(levelConfig && levelConfig.enemies) || 0;
+}
+
+function getDefaultStartingScore(level) {
+    if (isDebugMode) return 1000;
+    if (level === 1) return 3;
+    if (level === 2) return 15;
+    return 30;
+}
+
+function getLevelStartingScore(levelConfig, level = currentLevel) {
+    if (isDebugMode) return 1000;
+    return levelConfig && levelConfig.startingScore !== undefined
+        ? levelConfig.startingScore
+        : getDefaultStartingScore(level);
+}
+
+function getAvailableDefenseWeapons(levelConfig = LEVELS[currentLevel]) {
+    if (!levelConfig || levelConfig.attackMode) return [];
+    if (Array.isArray(levelConfig.availableDefenseWeapons) && levelConfig.availableDefenseWeapons.length > 0) {
+        return levelConfig.availableDefenseWeapons.map(Number).filter(Number.isFinite);
+    }
+    if (currentLevel === 1) return [1, 2];
+    if (currentLevel === 2) return [1, 2, 3];
+    return [1, 2, 3, 4];
+}
+
+function isDefenseWeaponAvailable(type) {
+    return getAvailableDefenseWeapons().includes(Number(type));
+}
+
+function getAttackUnitLabel(modelType) {
+    if (typeof ENEMY_CONFIG !== 'undefined' && ENEMY_CONFIG.modelTypes && ENEMY_CONFIG.modelTypes[modelType]) {
+        return ENEMY_CONFIG.modelTypes[modelType];
+    }
+    if (ATTACK_UNIT_CONFIGS[modelType]) return ATTACK_UNIT_CONFIGS[modelType].label;
+    return modelType;
+}
+
+function getBaseAttackUnitConfig(modelType) {
+    if (ATTACK_UNIT_CONFIGS[modelType]) {
+        return JSON.parse(JSON.stringify(Object.assign({ key: modelType, modelType }, ATTACK_UNIT_CONFIGS[modelType])));
+    }
+    const baseEnemy = typeof getEnemyConfigByModelType === 'function'
+        ? getEnemyConfigByModelType(currentLevel, modelType)
+        : { modelType, health: 12, speed: 0.022, scale: 1 };
+    const category = typeof getEnemyCategoryFromConfig === 'function'
+        ? getEnemyCategoryFromConfig(baseEnemy)
+        : (baseEnemy.category || 'infantry');
+    const defaultPrice = category === 'boss' ? 120 : (category === 'portal' ? 70 : (category === 'air' ? 18 : 12));
+    return {
+        key: modelType,
+        modelType,
+        label: getAttackUnitLabel(modelType),
+        price: defaultPrice,
+        spawn: Object.assign({}, baseEnemy, { modelType, category })
+    };
+}
+
+function normalizeAttackUnitConfig(entry) {
+    const source = typeof entry === 'string' ? { modelType: entry } : (entry || {});
+    const modelType = source.modelType || source.key || 'heavyRobot';
+    const base = getBaseAttackUnitConfig(modelType);
+    const spawn = Object.assign({}, base.spawn || {}, source.spawn || {}, { modelType });
+    ['health', 'speed', 'speedMin', 'speedMax', 'scale', 'isDrone', 'category', 'hpBarY', 'portalDurationMs', 'portalMaxSpawns', 'portalSpawnGroup', 'portalSpawnIntervalMs'].forEach(key => {
+        if (source[key] !== undefined && source[key] !== '') spawn[key] = source[key];
+    });
+    if (!spawn.category) spawn.category = getEnemyCategoryFromConfig(spawn);
+    const maxPurchases = Math.max(0, Math.round(Number(source.maxPurchases ?? base.maxPurchases ?? 0) || 0));
+    const hasExplicitPurchaseLimit = source.maxPurchases !== undefined;
+    return {
+        key: modelType,
+        modelType,
+        label: source.label || base.label || getAttackUnitLabel(modelType),
+        price: Math.max(0, Math.round(Number(source.price ?? base.price) || 0)),
+        maxPurchases,
+        limitOnce: maxPurchases === 1 || (!hasExplicitPurchaseLimit && (!!source.limitOnce || !!base.limitOnce)),
+        spawn
+    };
+}
+
+function getAvailableAttackUnitConfigs(levelConfig = LEVELS[currentLevel]) {
+    if (!levelConfig || !levelConfig.attackMode) return [];
+    if (Array.isArray(levelConfig.availableAttackUnits) && levelConfig.availableAttackUnits.length > 0) {
+        return levelConfig.availableAttackUnits.map(normalizeAttackUnitConfig);
+    }
+    return Object.keys(ATTACK_UNIT_CONFIGS).map(normalizeAttackUnitConfig);
+}
+
+function getAvailableAttackUnits(levelConfig = LEVELS[currentLevel]) {
+    return getAvailableAttackUnitConfigs(levelConfig).map(unit => unit.key);
+}
+
+function getAttackUnitConfig(unitKey) {
+    return getAvailableAttackUnitConfigs().find(unit => unit.key === unitKey);
+}
+
+function isAttackUnitAvailable(unitKey) {
+    return !!getAttackUnitConfig(unitKey);
+}
+
+function prepareLevelWaveRuntime(levelConfig) {
+    levelWaveStartTime = 0;
+    levelWaveRuntime = hasEnemyWaveSchedule(levelConfig)
+        ? levelConfig.enemyWaves.map(wave => ({
+            wave,
+            spawned: 0,
+            nextSpawnTime: null
+        }))
+        : [];
+}
+
+function buildWaveSpawnConfig(wave) {
+    const modelType = wave.modelType || 'robot';
+    const base = typeof getEnemyConfigByModelType === 'function'
+        ? getEnemyConfigByModelType(currentLevel, modelType)
+        : { modelType };
+    const spawnConfig = Object.assign({}, base, { modelType });
+    ['health', 'speed', 'speedMin', 'speedMax', 'scale', 'isDrone', 'category', 'hpBarY'].forEach(key => {
+        if (wave[key] !== undefined && wave[key] !== '') spawnConfig[key] = wave[key];
+    });
+    if (modelType === 'portalA' || modelType === 'portalB') {
+        return Object.assign(getPortalConfigForLevel(currentLevel, modelType), spawnConfig);
+    }
+    if (modelType === 'chopper') {
+        return Object.assign(spawnConfig, {
+            health: spawnConfig.health || Math.round((LEVELS[currentLevel].bossHp || 180) * 0.55),
+            speed: spawnConfig.speed || 0.02,
+            scale: spawnConfig.scale || 0.9,
+            isDrone: true,
+            isBoss: true,
+            isFlyingBoss: true,
+            flightBaseY: 2.5,
+            category: 'boss',
+            hpBarY: spawnConfig.hpBarY || 4.4
+        });
+    }
+    if (modelType === 'finalBossAlpha') {
+        return Object.assign(spawnConfig, {
+            health: spawnConfig.health || (LEVELS[currentLevel].bossHp || 260),
+            speed: spawnConfig.speed || 0.016,
+            scale: spawnConfig.scale || 1,
+            isDrone: false,
+            isBoss: true,
+            category: 'boss',
+            hpBarY: spawnConfig.hpBarY || 4.5
+        });
+    }
+    return spawnConfig;
+}
+
+function getBossWarningTextForModel(modelType) {
+    if (modelType === 'chopper') return t('chopperBoss');
+    if (modelType === 'finalBossAlpha') return t('bossAlpha');
+    return t('bossIncoming');
+}
+
+function getWavePath(wave) {
+    return wave.path === 'alternate' && alternateEnemyPathPoints.length > 0 ? alternateEnemyPathPoints : pathPoints;
+}
+
+function spawnWaveEnemyNow(wave, time) {
+    if (wave.modelType === 'tankBoss') {
+        bossSpawned = true;
+        spawnBoss(wave.tankLevel || (currentLevel === 1 ? 1 : 2), {
+            maxHp: wave.health || LEVELS[currentLevel].bossHp || 160,
+            speed: wave.speed || 0.015,
+            hpBarY: wave.hpBarY || 3.5
+        });
+        return;
+    }
+    const spawnConfig = buildWaveSpawnConfig(wave);
+    const enemyPath = getWavePath(wave);
+    let spawnPosition = enemyPath[0];
+    let pathIdx = 0;
+    if (spawnConfig.category === 'portal' || spawnConfig.modelType === 'portalA' || spawnConfig.modelType === 'portalB') {
+        const portalLocation = getRandomPointOnEnemyPath(enemyPath);
+        spawnPosition = portalLocation.position;
+        pathIdx = portalLocation.pathIdx;
+    }
+    createEnemyEntityFromConfig(
+        spawnConfig,
+        enemyPath,
+        spawnPosition,
+        pathIdx,
+        { currentTime: time }
+    );
+}
+
+function spawnWaveEnemy(wave, time) {
+    const spawnConfig = buildWaveSpawnConfig(wave);
+    if (spawnConfig.isBoss || spawnConfig.category === 'boss' || wave.modelType === 'tankBoss') {
+        bossSpawned = true;
+        if (typeof announceBossIncoming === 'function') {
+            announceBossIncoming(getBossWarningTextForModel(wave.modelType));
+        }
+        spawnWaveEnemyNow(wave, time);
+        return;
+    }
+    spawnWaveEnemyNow(wave, time);
+}
+
+function updateLevelWaveSpawns(time) {
+    if (!levelWaveRuntime.length) return;
+    if (!levelWaveStartTime) levelWaveStartTime = time;
+    levelWaveRuntime.forEach(entry => {
+        const wave = entry.wave;
+        const count = Number(wave.count) || 0;
+        const interval = Math.max(80, Number(wave.intervalMs) || 400);
+        if (entry.spawned >= count) return;
+        if (entry.nextSpawnTime === null) {
+            entry.nextSpawnTime = levelWaveStartTime + (Number(wave.startMs) || 0);
+        }
+        while (entry.spawned < count && time >= entry.nextSpawnTime && enemies.length < 90) {
+            spawnWaveEnemy(wave, time);
+            entry.spawned++;
+            spawnedCount++;
+            entry.nextSpawnTime += interval;
+        }
+    });
+}
+
+function areLevelWavesComplete() {
+    if (!levelWaveRuntime.length) return false;
+    return levelWaveRuntime.every(entry => entry.spawned >= (Number(entry.wave.count) || 0));
 }
 
 // ==================== 游戏流程控制 ====================
@@ -267,9 +520,11 @@ function startGame(debug = false) {
     buildMap();
     adjustCamera();
     const levelConfig = LEVELS[currentLevel] || LEVELS[1];
-    score = levelConfig.startingScore !== undefined ? levelConfig.startingScore : (isDebugMode ? 1000 : (currentLevel === 1 ? 3 : (currentLevel === 2 ? 15 : 30)));
+    score = getLevelStartingScore(levelConfig, currentLevel);
     lives = levelConfig.opponentBaseHp || 5;
     spawnedCount = 0;
+    levelConfig.enemies = getLevelEnemyTargetCount(levelConfig);
+    prepareLevelWaveRuntime(levelConfig);
     gameOver = false;
     bossSpawned = false;
     firstBossSpawned = false;
@@ -310,6 +565,12 @@ function clearRunObjects() {
         if (b.glowMesh) scene.remove(b.glowMesh);
     });
     bullets.length = 0;
+    if (typeof resetQHelicopterSupport === 'function') {
+        resetQHelicopterSupport();
+    }
+    if (typeof resetJRocketSquadSupport === 'function') {
+        resetJRocketSquadSupport();
+    }
     weapons.forEach(w => {
         scene.remove(w.mesh);
         if (w.padMesh) {
@@ -320,6 +581,12 @@ function clearRunObjects() {
     weapons.length = 0;
     particles.forEach(p => scene.remove(p.mesh || p));
     particles.length = 0;
+    animationAssets.forEach(asset => {
+        if (asset && typeof asset.dispose === 'function') {
+            asset.dispose();
+        }
+    });
+    animationAssets.length = 0;
     damageTexts.forEach(d => scene.remove(d.sprite));
     damageTexts.length = 0;
     airstrikeBombs.forEach(b => scene.remove(b.mesh));
@@ -344,6 +611,8 @@ function clearRunObjects() {
     attackGoldSpent = 0;
     attackBossPurchased = {};
     levelPortalSpawnCount = 0;
+    levelWaveStartTime = 0;
+    levelWaveRuntime = [];
     selectedWeaponType = null;
     selectedTacticalType = null;
     if (typeof resetCardSystem === 'function') resetCardSystem();
@@ -401,16 +670,23 @@ function updateTacticalCursor() {
     );
 }
 
-function getAttackUnitIdSuffix(unitKey) {
-    if (unitKey === 'heavyRobot') return 'Heavy';
-    if (unitKey === 'chopper') return 'Chopper';
-    if (unitKey === 'finalBossAlpha') return 'FinalBossAlpha';
-    if (unitKey === 'portalB') return 'PortalB';
-    return unitKey;
+function getAttackUnitButtonId(unitKey) {
+    return 'btnAttack_' + String(unitKey).replace(/[^A-Za-z0-9_-]/g, '_');
+}
+
+function getAttackUnitPreviewId(unitKey) {
+    return 'previewAttack_' + String(unitKey).replace(/[^A-Za-z0-9_-]/g, '_');
 }
 
 function createAttackUnitModel(unitKey) {
+    if (unitKey === 'robot') return createRobotEnemy(false);
     if (unitKey === 'heavyRobot') return createHeavyRobotEnemy();
+    if (unitKey === 'eliteDrone') return createDroneEnemy(true);
+    if (unitKey === 'drone') return createDroneEnemy(false);
+    if (unitKey === 'armored') return createArmoredUnitEnemy();
+    if (unitKey === 'hoverArmor') return createHoverArmorEnemy();
+    if (unitKey === 'wheelbarrow') return createWheelbarrowModel();
+    if (unitKey === 'tankBoss') return createArmoredUnitEnemy();
     if (unitKey === 'finalBossAlpha') {
         const model = new THREE.Group();
         createSteelGorillaBoss(model);
@@ -428,6 +704,7 @@ function createAttackUnitModel(unitKey) {
         model.userData.tailRotor = rotorRefs.tailRotor;
         return model;
     }
+    if (unitKey === 'portalA') return createPortalAEnemy();
     if (unitKey === 'portalB') return createPortalBEnemy();
     return createHeavyRobotEnemy();
 }
@@ -470,10 +747,36 @@ function initWeaponButtonPreviews() {
         const previewScale = type === 3 ? 2.35 : (type === 4 ? 2.45 : 2.12);
         renderButtonPreview('preview' + type, model, previewScale, type === 3 ? 0.55 : (type === 4 ? 0.48 : 0.42));
     });
-    renderButtonPreview('previewAttackHeavy', createAttackUnitModel('heavyRobot'), 2.2, 0.5);
-    renderButtonPreview('previewAttackChopper', createAttackUnitModel('chopper'), 2.55, 0.3);
-    renderButtonPreview('previewAttackFinalBossAlpha', createAttackUnitModel('finalBossAlpha'), 2.25, 0.45);
-    renderButtonPreview('previewAttackPortalB', createAttackUnitModel('portalB'), 2.35, 0.46);
+}
+
+function renderAttackUnitButtons(unitConfigs = getAvailableAttackUnitConfigs()) {
+    const holder = document.getElementById('attackUnitButtons');
+    if (!holder) return;
+    const signature = unitConfigs.map(unit => `${unit.key}:${unit.price}`).join('|');
+    if (signature === attackUnitButtonSignature && holder.children.length === unitConfigs.length) return;
+    attackUnitButtonSignature = signature;
+    holder.innerHTML = '';
+    unitConfigs.forEach(unit => {
+        const btn = document.createElement('button');
+        btn.id = getAttackUnitButtonId(unit.key);
+        btn.className = 'weapon-btn attack-btn';
+        btn.type = 'button';
+        btn.title = unit.label;
+        btn.setAttribute('aria-label', unit.label);
+        btn.addEventListener('click', () => buyAttackUnit(unit.key));
+
+        const preview = document.createElement('span');
+        preview.id = getAttackUnitPreviewId(unit.key);
+        preview.className = 'weapon-preview';
+        const price = document.createElement('span');
+        price.id = `priceAttack_${unit.key}`;
+        price.className = 'price-tag';
+        price.textContent = unit.price;
+        btn.append(preview, price);
+        holder.appendChild(btn);
+        const previewScale = unit.modelType === 'chopper' ? 2.55 : (unit.modelType === 'finalBossAlpha' ? 2.25 : 2.2);
+        renderButtonPreview(preview.id, createAttackUnitModel(unit.modelType), previewScale, unit.modelType === 'chopper' ? 0.3 : 0.48);
+    });
 }
 
 function buyWeapon(type) {
@@ -481,7 +784,7 @@ function buyWeapon(type) {
         buyAirstrike();
         return;
     }
-    if (currentLevel === 1 && type === 3) return;
+    if (!isDefenseWeaponAvailable(type)) return;
     if (gameOver || isPaused || score < PRICES[type]) return;
     isSellMode = false;
     selectedTacticalType = null;
@@ -504,7 +807,7 @@ function getAirstrikeCooldownRemaining(time = performance.now()) {
 
 function buyAirstrike() {
     const config = getWeaponConfig(4);
-    if (currentLevel < 3 || gameOver || isPaused || score < config.price || getAirstrikeCooldownRemaining() > 0) return;
+    if (!isDefenseWeaponAvailable(4) || gameOver || isPaused || score < config.price || getAirstrikeCooldownRemaining() > 0) return;
 
     isSellMode = false;
     selectedWeaponType = null;
@@ -519,7 +822,7 @@ function buyAirstrike() {
 
 function buyAttackUnit(unitKey) {
     if (!isAttackMode() || gameOver || isPaused) return;
-    const unit = ATTACK_UNIT_CONFIGS[unitKey];
+    const unit = getAttackUnitConfig(unitKey);
     if (!unit || score < unit.price || !pathPoints.length) return;
     if (unit.limitOnce && attackBossPurchased[unitKey]) return;
     if (unit.maxPurchases && (attackBossPurchased[unitKey] || 0) >= unit.maxPurchases) return;
@@ -535,10 +838,20 @@ function buyAttackUnit(unitKey) {
     const spawnConfig = Object.assign({}, unit.spawn);
     let spawnPosition;
     let pathIdx = 0;
-    if (unitKey === 'portalB') {
+    if (spawnConfig.modelType === 'tankBoss') {
+        const start = pathPoints[0].clone();
+        spawnBoss(spawnConfig.tankLevel || 2, {
+            maxHp: spawnConfig.health || 220,
+            speed: spawnConfig.speed || 0.015,
+            hpBarY: spawnConfig.hpBarY || 3.5,
+            positionOffset: new THREE.Vector3(0, 0, 0)
+        });
+        spawnPosition = start;
+    } else if (spawnConfig.category === 'portal' || spawnConfig.modelType === 'portalA' || spawnConfig.modelType === 'portalB') {
         const portalLocation = getRandomPointOnEnemyPath(pathPoints);
         spawnPosition = portalLocation.position;
         pathIdx = portalLocation.pathIdx;
+        createEnemyEntityFromConfig(spawnConfig, pathPoints, spawnPosition, pathIdx, { currentTime: performance.now(), attackUnit: true });
     } else {
         const start = pathPoints[0].clone();
         const next = pathPoints[1] || start;
@@ -548,12 +861,12 @@ function buyAttackUnit(unitKey) {
             .add(forward.multiplyScalar(0.5))
             .add(lateral.multiplyScalar((Math.random() - 0.5) * 1.25));
         spawnPosition.y = 0.1;
+        createEnemyEntityFromConfig(spawnConfig, pathPoints, spawnPosition, pathIdx, { currentTime: performance.now(), attackUnit: true });
     }
-    createEnemyEntityFromConfig(spawnConfig, pathPoints, spawnPosition, pathIdx, { currentTime: performance.now(), attackUnit: true });
     if (typeof announceBattleEvent === 'function') {
         announceBattleEvent('attack-unit-' + unitKey, t('attackUnitDeployed', { name: unit.label }), spawnPosition, 900);
     }
-    playTone(unitKey === 'portalB' ? 520 : 420, 'triangle', 0.16, 0.045);
+    playTone(spawnConfig.category === 'portal' ? 520 : 420, 'triangle', 0.16, 0.045);
     updateUI();
 }
 
@@ -675,7 +988,7 @@ function createAirstrikeBombMesh() {
 function deployAirstrike(target) {
     const config = getWeaponConfig(4);
     const now = performance.now();
-    if (currentLevel < 3 || score < config.price || getAirstrikeCooldownRemaining(now) > 0) return;
+    if (!isDefenseWeaponAvailable(4) || score < config.price || getAirstrikeCooldownRemaining(now) > 0) return;
     if (typeof announceBattleEvent === 'function') {
         announceBattleEvent('airstrike-deploy', t('airstrike'), target.position, 1300);
     }
@@ -893,23 +1206,25 @@ function updateUI() {
             priceEl.innerText = `${PRICES[i]}`;
         }
     });
-    Object.keys(ATTACK_UNIT_CONFIGS).forEach(unitKey => {
-        const cfg = ATTACK_UNIT_CONFIGS[unitKey];
-        const idSuffix = getAttackUnitIdSuffix(unitKey);
-        const priceEl = document.getElementById('priceAttack' + idSuffix);
-        const btn = document.getElementById('btnAttack' + idSuffix);
+    const attackUnitConfigs = getAvailableAttackUnitConfigs();
+    renderAttackUnitButtons(attackUnitConfigs);
+    attackUnitConfigs.forEach(cfg => {
+        const unitKey = cfg.key;
+        const priceEl = document.getElementById(`priceAttack_${unitKey}`);
+        const btn = document.getElementById(getAttackUnitButtonId(unitKey));
         if (priceEl) priceEl.innerText = `${cfg.price}`;
         if (btn) {
-            btn.style.display = isAttackMode() ? '' : 'none';
+            const available = isAttackMode();
+            btn.style.display = available ? '' : 'none';
             const reachedMax = cfg.limitOnce
                 ? !!attackBossPurchased[unitKey]
                 : (cfg.maxPurchases ? (attackBossPurchased[unitKey] || 0) >= cfg.maxPurchases : false);
-            btn.disabled = !isAttackMode() || gameOver || isPaused || score < cfg.price || reachedMax;
+            btn.disabled = !available || gameOver || isPaused || score < cfg.price || reachedMax;
         }
     });
     [1, 2, 3, 4].forEach(i => {
         const btn = document.getElementById('btn' + i);
-        if (btn) btn.style.display = isAttackMode() ? 'none' : '';
+        if (btn) btn.style.display = isAttackMode() || !isDefenseWeaponAvailable(i) ? 'none' : '';
     });
     const sellBtn = document.getElementById('btnSell');
     if (sellBtn) sellBtn.style.display = isAttackMode() ? 'none' : '';
@@ -926,14 +1241,13 @@ function updateUI() {
     }
     const timerItem = document.getElementById('timerItem');
     if (timerItem) timerItem.style.display = 'none';
-    const teslaBtn = document.getElementById('btn3');
-    teslaBtn.style.display = currentLevel === 1 ? 'none' : '';
-    if (currentLevel === 1 && selectedWeaponType === 3) {
+    if (selectedWeaponType && !isDefenseWeaponAvailable(selectedWeaponType)) {
         selectedWeaponType = null;
         clearWeaponSelectionUi();
     }
     [1, 2, 3].forEach(i => {
-        document.getElementById('btn' + i).disabled = score < PRICES[i];
+        const btn = document.getElementById('btn' + i);
+        if (btn) btn.disabled = !isDefenseWeaponAvailable(i) || score < PRICES[i];
     });
     updateAirstrikeButton();
 }
@@ -944,13 +1258,14 @@ function updateAirstrikeButton(time = performance.now()) {
     const config = getWeaponConfig(4);
     const remaining = getAirstrikeCooldownRemaining(time);
     const cooldownEl = document.getElementById('cooldown4');
-    btn.style.display = currentLevel >= 3 && !isAttackMode() ? '' : 'none';
-    if ((currentLevel < 3 || isAttackMode()) && selectedTacticalType === 'airstrike') {
+    const available = isDefenseWeaponAvailable(4) && !isAttackMode();
+    btn.style.display = available ? '' : 'none';
+    if (!available && selectedTacticalType === 'airstrike') {
         selectedTacticalType = null;
         clearWeaponSelectionUi();
     }
     updateTacticalCursor();
-    btn.disabled = currentLevel < 3 || isAttackMode() || gameOver || isPaused || score < config.price || remaining > 0;
+    btn.disabled = !available || gameOver || isPaused || score < config.price || remaining > 0;
     btn.classList.toggle('cooling', remaining > 0);
     if (cooldownEl) {
         cooldownEl.textContent = remaining > 0 ? Math.ceil(remaining / 1000) : '';
@@ -1033,8 +1348,54 @@ function createExplosionEffect(position, radius = 3) {
     playTone(90, 'sawtooth', 0.25, 0.08);
 }
 
+function getEnemyVisualSize(enemy) {
+    if (!enemy || !enemy.mesh) return 6;
+    try {
+        const box = new THREE.Box3().setFromObject(enemy.mesh);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const maxSize = Math.max(size.x, size.y, size.z);
+        return Number.isFinite(maxSize) && maxSize > 0 ? maxSize : 6;
+    } catch (error) {
+        return 6;
+    }
+}
+
+function createBossDeathExplosionEffect(position, sourceEnemy) {
+    const visualSize = getEnemyVisualSize(sourceEnemy);
+    const effectPosition = position.clone();
+    effectPosition.y = Math.max(effectPosition.y, 0.35);
+
+    if (typeof createBossExplosionAnimation === 'function') {
+        const animation = createBossExplosionAnimation(scene, effectPosition, visualSize, {
+            duration: 2.35,
+            directionAngle: 20 + Math.random() * 320,
+            amplitude: 0.9 + Math.random() * 0.28,
+            quality: window.innerWidth < 700 ? 0.55 : 0.72
+        });
+        animationAssets.push(animation);
+    } else {
+        createExplosionEffect(effectPosition, Math.max(2.8, visualSize * 0.5));
+    }
+}
+
+function updateAnimationAssets(time) {
+    for (let i = animationAssets.length - 1; i >= 0; i--) {
+        const animation = animationAssets[i];
+        if (!animation || typeof animation.update !== 'function') {
+            animationAssets.splice(i, 1);
+            continue;
+        }
+        animation.update(time);
+        if (animation.isComplete) {
+            animationAssets.splice(i, 1);
+        }
+    }
+}
+
 function checkVictoryAfterKill(killedIsBoss) {
-    if (killedIsBoss && bossSpawned && enemies.length === 0) {
+    if (isAttackMode()) return;
+    if (killedIsBoss && bossSpawned && enemies.length === 0 && (!hasEnemyWaveSchedule() || areLevelWavesComplete())) {
         endGame(true);
     }
 }
@@ -1042,7 +1403,11 @@ function checkVictoryAfterKill(killedIsBoss) {
 function explodeEnemy(position, sourceEnemy) {
     const explosionRadius = 1.5;
     const explosionDamage = 2.5;
-    createExplosionEffect(position, explosionRadius);
+    if (sourceEnemy && sourceEnemy.isBoss) {
+        createBossDeathExplosionEffect(position, sourceEnemy);
+    } else {
+        createExplosionEffect(position, explosionRadius);
+    }
     if (typeof announceBattleEvent === 'function') {
         announceBattleEvent('explosion-event', t('explosion'), position, 1800);
     }
@@ -1247,6 +1612,26 @@ function getTargetForWeapon(w) {
     return bestTarget;
 }
 
+function getSightTargetForWeapon(w) {
+    const config = getWeaponConfig(w.type);
+    const range = config ? (config.sightRange !== undefined ? config.sightRange : config.range) : null;
+    if (range === null || range === undefined) {
+        return enemies.find(e => !e.isDead);
+    }
+
+    let bestTarget = null;
+    let bestDistance = Infinity;
+    enemies.forEach(e => {
+        if (e.isDead) return;
+        const distance = w.mesh.position.distanceTo(e.mesh.position);
+        if (distance <= range && distance < bestDistance) {
+            bestTarget = e;
+            bestDistance = distance;
+        }
+    });
+    return bestTarget;
+}
+
 function createEnemyFromConfig(enemyConfig) {
     let enemyMesh;
     if (enemyConfig.modelType === 'robot') {
@@ -1310,7 +1695,9 @@ function getRandomPointOnEnemyPath(enemyPath) {
 }
 
 function getLevelPortalEvents(level) {
-    return LEVEL_PORTAL_EVENTS[level] || [];
+    const cfg = typeof LEVELS !== 'undefined' ? LEVELS[level] : null;
+    if (hasEnemyWaveSchedule(cfg)) return [];
+    return (cfg && cfg.portalEvents) || LEVEL_PORTAL_EVENTS[level] || [];
 }
 
 function getPortalConfigForLevel(level, modelType) {
@@ -1389,21 +1776,22 @@ function setupAttackModeDefense() {
     const cfg = LEVELS[currentLevel];
     if (!cfg || !cfg.enemyTowers) return;
     cfg.enemyTowers.forEach((towerConfig, index) => {
+        const towerType = Number(towerConfig.type) || 1;
         const padGroup = createAttackTowerSlotPad(towerConfig.x, towerConfig.z);
         if (typeof activeMapRoot !== 'undefined' && activeMapRoot) {
             activeMapRoot.add(padGroup);
         } else {
             scene.add(padGroup);
         }
-        const model = createWeaponModel(towerConfig.type);
+        const model = createWeaponModel(towerType);
         model.position.set(towerConfig.x, 0.32, towerConfig.z);
         model.scale.setScalar(0.94);
         scene.add(model);
-        const weaponConfig = getWeaponConfig(towerConfig.type);
+        const weaponConfig = getWeaponConfig(towerType);
         weapons.push({
             mesh: model,
             padMesh: padGroup,
-            type: towerConfig.type,
+            type: towerType,
             damageStat: null,
             basePosition: model.position.clone(),
             lastFire: index * 350,
@@ -1734,6 +2122,9 @@ function gameLoop(time) {
         }
     });
     updateAirstrikeButton(time);
+    if (!isPaused) {
+        updateAnimationAssets(time);
+    }
     
     // Tesla 炮台击杀数数字标签更新 - 机制已移除，不再显示击杀数
     
@@ -1762,30 +2153,46 @@ function gameLoop(time) {
     } else {
         // 敌人生成
         updateCardIncome(time);
-        spawnTimer += delta;
-        if (spawnTimer > 400 && spawnedCount < LEVELS[currentLevel].enemies) {
-            spawnTimer = 0;
-            spawnedCount++;
-            
-            const spawnConfig = chooseEnemyConfig(currentLevel);
-            const enemyPath = (currentLevel === 3 && alternateEnemyPathPoints.length > 0 && Math.random() < (LEVELS[3].altEnemyChance || 0))
-                ? alternateEnemyPathPoints
-                : pathPoints;
-            createEnemyEntityFromConfig(
-                spawnConfig,
-                enemyPath,
-                enemyPath[0],
-                0,
-                { currentTime: time }
-            );
-        } else if (spawnedCount >= LEVELS[currentLevel].enemies && enemies.length === 0 && !bossSpawned) {
-            bossSpawned = true;
-            const warningText = currentLevel === 3 ? t('bossAlpha') : t('bossIncoming');
-            queueBossSpawnWarning(warningText, () => spawnBoss());
+        const levelConfig = LEVELS[currentLevel] || {};
+        const hasWaves = hasEnemyWaveSchedule(levelConfig);
+        if (hasWaves) {
+            updateLevelWaveSpawns(time);
+        } else {
+            spawnTimer += delta;
+            if (spawnTimer > 400 && spawnedCount < LEVELS[currentLevel].enemies) {
+                spawnTimer = 0;
+                spawnedCount++;
+                
+                const spawnConfig = chooseEnemyConfig(currentLevel);
+                const enemyPath = (currentLevel === 3 && alternateEnemyPathPoints.length > 0 && Math.random() < (LEVELS[3].altEnemyChance || 0))
+                    ? alternateEnemyPathPoints
+                    : pathPoints;
+                createEnemyEntityFromConfig(
+                    spawnConfig,
+                    enemyPath,
+                    enemyPath[0],
+                    0,
+                    { currentTime: time }
+                );
+            }
+        }
+
+        const wavesComplete = hasWaves ? areLevelWavesComplete() : spawnedCount >= LEVELS[currentLevel].enemies;
+        if (wavesComplete && enemies.length === 0 && !gameOver) {
+            if (hasWaves) {
+                endGame(true);
+            } else if (!bossSpawned && (levelConfig.bossHp || 0) > 0 && levelConfig.finalBoss !== false) {
+                bossSpawned = true;
+                const warningText = currentLevel === 3 ? t('bossAlpha') : t('bossIncoming');
+                queueBossSpawnWarning(warningText, () => spawnBoss());
+            } else {
+                bossSpawned = true;
+                endGame(true);
+            }
         }
         
         // 第三关特殊逻辑：第一个 Boss 在小兵出一半时出场
-        if ((currentLevel === 2 || currentLevel === 3) && !firstBossSpawned && spawnedCount >= Math.floor(LEVELS[currentLevel].enemies / 2)) {
+        if (!hasWaves && (currentLevel === 2 || currentLevel === 3) && !firstBossSpawned && spawnedCount >= Math.floor(LEVELS[currentLevel].enemies / 2)) {
             firstBossSpawned = true;
             const midBossText = currentLevel === 2 ? t('chopperBoss') : t('bossAlpha');
             queueBossSpawnWarning(midBossText, () => spawnFirstBoss());
@@ -1863,6 +2270,12 @@ function gameLoop(time) {
     if (typeof updateEnemyPhysics === 'function') {
         updateEnemyPhysics(time);
     }
+    if (typeof updateQHelicopterSupport === 'function') {
+        updateQHelicopterSupport(time);
+    }
+    if (typeof updateJRocketSquadSupport === 'function') {
+        updateJRocketSquadSupport(time);
+    }
     
     // 武器射击
     weapons.forEach(w => {
@@ -1903,6 +2316,11 @@ function gameLoop(time) {
             }
         }
         
+        const sightTarget = getSightTargetForWeapon(w);
+        if (sightTarget) {
+            aimWeaponAtTarget(w, sightTarget);
+        }
+
         const activeFireInterval = getAdjustedWeaponFireInterval(w);
         if (w.type === 2) {
             // Rail: 连发 6 发之后有 1 秒间隔
@@ -2131,7 +2549,7 @@ function endGame(victory) {
     const clearTime = isAttackMode() && timeLimitMs
         ? Math.ceil(Math.max(0, timeLimitMs - attackTimeRemainingMs) / 1000)
         : Math.floor((Date.now() - levelStartTime) / 1000);
-    const startingScore = levelConfig.startingScore !== undefined ? levelConfig.startingScore : (isDebugMode ? 1000 : (currentLevel === 1 ? 3 : (currentLevel === 2 ? 15 : 30)));
+    const startingScore = getLevelStartingScore(levelConfig, currentLevel);
     const killScore = score - startingScore;
     const levelScore = calculateLevelScore(currentLevel, lives, killScore, victory);
     

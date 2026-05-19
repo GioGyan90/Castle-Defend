@@ -1,4 +1,4 @@
-// Reusable map assets: spawn point, tower slots, tech pylons, and base placement helpers.
+// Reusable functional map assets: spawn point, tower slots, portals, and base placement helpers.
 
 function createMapMaterial(THREE, color, options = {}) {
     return new THREE.MeshPhongMaterial({
@@ -32,22 +32,6 @@ function createMapGroundAsset(THREE, size) {
         line.position.set(0, -0.025, z);
         group.add(line);
     }
-    return group;
-}
-
-function createTechPylonAsset(THREE, x, z, color = 0x00d2ff) {
-    const group = new THREE.Group();
-    const base = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.28, 0.38, 0.8, 6),
-        createMapMaterial(THREE, 0x263238, { emissive: 0x061a1d, emissiveIntensity: 0.35 })
-    );
-    base.position.set(x, 0.35, z);
-    const beacon = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.24, 0),
-        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
-    );
-    beacon.position.set(x, 0.95, z);
-    group.add(base, beacon);
     return group;
 }
 

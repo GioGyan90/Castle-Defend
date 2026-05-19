@@ -74,6 +74,34 @@ h1 {
     gap: 8px;
 }
 
+.level-file-btn {
+    display: inline-grid;
+    grid-template-columns: 24px auto;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.level-file-btn .arrow-icon {
+    display: inline-flex;
+    width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    font-size: 18px;
+    line-height: 1;
+}
+
+.level-file-btn.export-level {
+    background: #0f766e;
+}
+
+.level-file-btn.import-level {
+    background: #7c3aed;
+}
+
 .status-line {
     min-height: 36px;
     margin-bottom: 12px;
@@ -162,6 +190,17 @@ input[readonly] {
     aspect-ratio: 1;
     border-radius: 8px;
     background: #263238;
+    cursor: default;
+    touch-action: none;
+    user-select: none;
+}
+
+#mapCanvas.can-drag {
+    cursor: grab;
+}
+
+#mapCanvas.dragging {
+    cursor: grabbing;
 }
 
 .legend {
@@ -240,6 +279,333 @@ input[readonly] {
     background: #d63031;
 }
 
+.rules-card {
+    display: grid;
+    gap: 12px;
+}
+
+.card-rules-card {
+    display: grid;
+    gap: 10px;
+}
+
+.card-enable-toggle {
+    display: inline-flex;
+    width: auto;
+    align-items: center;
+    gap: 6px;
+    color: #dbeafe;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.card-enable-toggle input {
+    width: 18px;
+    height: 18px;
+    min-height: auto;
+    padding: 0;
+}
+
+.card-rules-list {
+    display: grid;
+    gap: 8px;
+}
+
+.card-rule-row {
+    display: grid;
+    grid-template-columns: 42px 74px repeat(4, minmax(64px, 1fr));
+    gap: 6px;
+    align-items: end;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(7, 17, 31, 0.72);
+}
+
+.card-rule-rank {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    background: #f8fbff;
+    color: #111827;
+    font-size: 20px;
+    font-weight: 1000;
+}
+
+.card-rule-row label {
+    display: grid;
+    gap: 4px;
+    color: #aebdd2;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.card-rule-row input {
+    min-height: 34px;
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
+.card-rule-row .card-rule-check {
+    align-items: center;
+    grid-template-columns: 18px 1fr;
+    grid-auto-flow: column;
+    min-height: 34px;
+    text-transform: none;
+}
+
+.card-rule-check input {
+    width: 18px;
+    height: 18px;
+    min-height: auto;
+    padding: 0;
+}
+
+.is-hidden {
+    display: none !important;
+}
+
+.attack-rule-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.attack-rule-grid label {
+    display: grid;
+    gap: 6px;
+    color: #aebdd2;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.enemy-tower-row {
+    grid-template-columns: 34px minmax(174px, 1.4fr) 1fr 1fr 34px;
+}
+
+.enemy-tower-row select {
+    min-width: 0;
+}
+
+.tower-type-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.tower-type-buttons button {
+    min-height: 34px;
+    padding: 0 6px;
+    border: 1px solid color-mix(in srgb, var(--tower-color), white 28%);
+    background: rgba(7, 17, 31, 0.85);
+    color: color-mix(in srgb, var(--tower-color), white 28%);
+    font-size: 10px;
+    font-weight: 1000;
+}
+
+.tower-type-buttons button.active {
+    background: var(--tower-color);
+    color: #ffffff;
+    box-shadow: 0 0 12px color-mix(in srgb, var(--tower-color), transparent 48%);
+}
+
+.rule-money-field {
+    display: grid;
+    gap: 6px;
+    color: #aebdd2;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.weapon-options,
+.attack-unit-options {
+    display: grid;
+    gap: 8px;
+}
+
+.attack-unit-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.attack-unit-tools {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+}
+
+.attack-units-list {
+    display: grid;
+    gap: 8px;
+    max-height: 360px;
+    overflow: auto;
+}
+
+.attack-unit-row {
+    display: grid;
+    grid-template-columns:
+        minmax(118px, 1.15fr)
+        minmax(72px, 0.6fr)
+        minmax(72px, 0.6fr)
+        minmax(72px, 0.6fr)
+        minmax(72px, 0.6fr)
+        minmax(92px, 0.72fr)
+        34px;
+    gap: 6px;
+    align-items: end;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(7, 17, 31, 0.72);
+}
+
+.attack-unit-row label {
+    display: grid;
+    gap: 4px;
+    color: #aebdd2;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.attack-unit-row input,
+.attack-unit-row select {
+    min-height: 34px;
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
+.attack-unit-row button {
+    min-height: 34px;
+    padding: 0;
+    background: #d63031;
+}
+
+.weapon-option {
+    display: grid;
+    grid-template-columns: 22px 1fr auto;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    background: rgba(7, 17, 31, 0.72);
+    color: #dbeafe;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.weapon-option input {
+    min-height: auto;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+}
+
+.weapon-option em {
+    color: #6ff7ff;
+    font-style: normal;
+}
+
+.wave-card {
+    display: grid;
+    gap: 12px;
+}
+
+.wide-wave-card {
+    grid-column: 1 / -1;
+    padding: 14px;
+}
+
+.wide-wave-card .card-head {
+    margin-bottom: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.wave-list {
+    display: grid;
+    gap: 8px;
+    max-height: 310px;
+    overflow: auto;
+    padding-right: 4px;
+}
+
+.wave-row {
+    display: grid;
+    grid-template-columns:
+        minmax(170px, 1.4fr)
+        minmax(118px, 0.9fr)
+        minmax(76px, 0.45fr)
+        minmax(92px, 0.5fr)
+        minmax(102px, 0.58fr)
+        minmax(92px, 0.48fr)
+        minmax(78px, 0.42fr)
+        minmax(84px, 0.42fr)
+        38px;
+    gap: 8px;
+    align-items: end;
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(7, 17, 31, 0.78);
+}
+
+.wave-row label {
+    display: grid;
+    gap: 4px;
+    color: #aebdd2;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.wave-row input,
+.wave-row select {
+    min-height: 36px;
+    padding: 7px 9px;
+    font-size: 13px;
+}
+
+.wave-row button {
+    min-height: 36px;
+    padding: 0;
+    background: #d63031;
+}
+
+.wave-timeline {
+    position: relative;
+    min-height: 92px;
+    border-radius: 8px;
+    border: 1px solid rgba(41, 242, 255, 0.18);
+    background:
+        linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px) 0 0 / 20% 100%,
+        rgba(7, 17, 31, 0.8);
+    overflow: hidden;
+}
+
+.wave-bar {
+    position: absolute;
+    height: 10px;
+    min-width: 8px;
+    border-radius: 999px;
+    background: #29f2ff;
+    box-shadow: 0 0 14px rgba(41, 242, 255, 0.52);
+}
+
+.wave-label {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    color: #dbeafe;
+    font-size: 12px;
+    font-weight: 900;
+}
+
 #advancedJson {
     min-height: 210px;
     resize: vertical;
@@ -259,5 +625,52 @@ input[readonly] {
 
     .file-actions {
         justify-content: flex-start;
+    }
+
+    .wide-wave-card {
+        grid-column: auto;
+    }
+
+    .wave-row {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) 38px;
+    }
+}
+
+@media (max-width: 620px) {
+    .attack-rule-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .enemy-tower-row {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .enemy-tower-row button {
+        grid-column: span 2;
+    }
+
+    .attack-unit-options,
+    .attack-unit-tools {
+        grid-template-columns: 1fr;
+    }
+
+    .attack-unit-row {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .attack-unit-row button {
+        grid-column: span 2;
+    }
+
+    .card-rule-row {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .wave-row {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .wave-row button {
+        grid-column: span 2;
     }
 }

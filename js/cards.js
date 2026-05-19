@@ -31,6 +31,32 @@ const CARD_CONFIGS = {
 
 const activeCards = new Set();
 
+function getLevelCardRules() {
+    if (typeof LEVELS === 'undefined' || typeof currentLevel === 'undefined') return null;
+    const cfg = LEVELS[currentLevel];
+    return cfg && cfg.cardRules ? cfg.cardRules : null;
+}
+
+function getCardConfig(rank) {
+    const base = CARD_CONFIGS[rank];
+    if (!base) return null;
+    const rules = getLevelCardRules();
+    if (!rules) return base;
+    if (rules.enabled === false) return null;
+    const cardRule = rules.cards && rules.cards[rank];
+    if (!cardRule || cardRule.enabled === false) return null;
+    return Object.assign({}, base, {
+        price: cardRule.price !== undefined ? cardRule.price : base.price,
+        fireRateBonus: cardRule.fireRateBonus !== undefined ? cardRule.fireRateBonus : base.fireRateBonus,
+        damageBonus: cardRule.damageBonus !== undefined ? cardRule.damageBonus : base.damageBonus,
+        incomePerSecond: cardRule.incomePerSecond !== undefined ? cardRule.incomePerSecond : base.incomePerSecond
+    });
+}
+
+function getAvailableCardRanks() {
+    return Object.keys(CARD_CONFIGS).filter(rank => !!getCardConfig(rank));
+}
+
 function createCardFaceElement(rank, compact = false) {
     const config = CARD_CONFIGS[rank];
     const card = document.createElement('div');
@@ -52,6 +78,20 @@ function createCardFaceElement(rank, compact = false) {
     card.appendChild(top);
     card.appendChild(suit);
     card.appendChild(bottom);
+    if (rank === 'J') {
+        const support = document.createElement('span');
+        support.className = 'card-support-robot';
+        support.setAttribute('aria-hidden', 'true');
+        support.innerHTML = '<span class="robot-head"></span><span class="robot-body"></span><span class="robot-launcher"></span><span class="robot-leg left"></span><span class="robot-leg right"></span>';
+        card.appendChild(support);
+    }
+    if (rank === 'Q') {
+        const support = document.createElement('span');
+        support.className = 'card-support-helicopter';
+        support.setAttribute('aria-hidden', 'true');
+        support.innerHTML = '<span class="heli-rotor"></span><span class="heli-body"></span><span class="heli-tail"></span>';
+        card.appendChild(support);
+    }
     if (config && !compact) {
         card.title = `${rank} ${config.description}`;
     }
@@ -61,16 +101,22 @@ function createCardFaceElement(rank, compact = false) {
 function updateCardPanelUI() {
     const panel = document.getElementById('cardPanel');
     if (!panel) return;
+    const availableRanks = getAvailableCardRanks();
     const shouldShow = typeof gameStarted !== 'undefined'
         && gameStarted
         && !gameOver
-        && (typeof isAttackMode !== 'function' || !isAttackMode());
+        && (typeof isAttackMode !== 'function' || !isAttackMode())
+        && availableRanks.length > 0;
     panel.style.display = shouldShow ? 'flex' : 'none';
 
     Object.keys(CARD_CONFIGS).forEach(rank => {
-        const cfg = CARD_CONFIGS[rank];
+        const cfg = getCardConfig(rank);
         const btn = document.getElementById('cardBtn' + rank);
         if (!btn) return;
+        if (!cfg) {
+            btn.style.display = 'none';
+            return;
+        }
         btn.style.display = activeCards.has(rank) ? 'none' : '';
         btn.disabled = !shouldShow || activeCards.has(rank) || typeof score === 'undefined' || score < cfg.price;
         btn.classList.toggle('owned', activeCards.has(rank));
@@ -86,11 +132,17 @@ function updateCardPanelUI() {
 
 function resetCardSystem() {
     activeCards.clear();
+    if (typeof window !== 'undefined' && typeof window.resetQHelicopterSupport === 'function') {
+        window.resetQHelicopterSupport();
+    }
+    if (typeof window !== 'undefined' && typeof window.resetJRocketSquadSupport === 'function') {
+        window.resetJRocketSquadSupport();
+    }
     updateCardPanelUI();
 }
 
 function buyCard(rank) {
-    const cfg = CARD_CONFIGS[rank];
+    const cfg = getCardConfig(rank);
     if (!cfg || activeCards.has(rank)) return;
     if (typeof isAttackMode === 'function' && isAttackMode()) return;
     if (typeof gameOver !== 'undefined' && gameOver) return;
@@ -99,6 +151,12 @@ function buyCard(rank) {
 
     score -= cfg.price;
     activeCards.add(rank);
+    if (rank === 'J' && typeof window !== 'undefined' && typeof window.activateJRocketSquadSupport === 'function') {
+        window.activateJRocketSquadSupport();
+    }
+    if (rank === 'Q' && typeof window !== 'undefined' && typeof window.activateQHelicopterSupport === 'function') {
+        window.activateQHelicopterSupport();
+    }
     if (typeof announceHighlight === 'function') {
         announceHighlight('card-' + rank, t('cardActivated', { rank }));
     }
@@ -116,7 +174,7 @@ function getActiveCardEffects() {
         incomePerSecond: 0
     };
     activeCards.forEach(rank => {
-        const cfg = CARD_CONFIGS[rank];
+        const cfg = getCardConfig(rank);
         if (!cfg) return;
         effects.fireRateBonus += cfg.fireRateBonus || 0;
         effects.damageBonus += cfg.damageBonus || 0;

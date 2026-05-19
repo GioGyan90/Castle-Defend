@@ -1,12 +1,14 @@
 // Weapon balance configuration.
 // Edit this file locally, save it, then refresh the game page for changes to take effect.
-// range: null means map-wide targeting. A number means the weapon only targets enemies within that distance.
+// range is attack range. sightRange is longer and lets weapons pre-aim before enemies enter attack range.
+// null means map-wide targeting for that specific range field.
 var WEAPON_CONFIG = {
     1: {
         key: 'PULSE',
         name: 'Pulse Cannon',
         price: 3,
         range: 7,
+        sightRange: 9,
         fireIntervalMs: 1200,
         damage: 3,
         critDamage: 5,
@@ -18,6 +20,7 @@ var WEAPON_CONFIG = {
         name: 'Rail Laser',
         price: 12,
         range: 8,
+        sightRange: 10,
         fireIntervalMs: 1300,
         burstTotal: 6,
         damage: 8,
@@ -33,6 +36,7 @@ var WEAPON_CONFIG = {
         name: 'Tesla Coil',
         price: 25,
         range: 9,
+        sightRange: 11,
         fireIntervalMs: 1950,
         chargeTimeMs: 500,
         damage: 15,
@@ -54,6 +58,40 @@ var WEAPON_CONFIG = {
         length: 9,
         width: 4.2,
         rows: 9
+    },
+    Q_HELICOPTER: {
+        key: 'Q_HELICOPTER',
+        name: 'Q Support Helicopter',
+        range: 6,
+        sightRange: 9,
+        moveRadius: 9,
+        moveSpeed: 0.055,
+        fireIntervalMs: 1300,
+        burstTotal: 6,
+        damage: 8,
+        projectileSpeed: 1.35,
+        projectileSpeedDecay: 0.94,
+        projectileMinSpeed: 0.28,
+        projectileLife: 36,
+        projectileLength: 1.35,
+        projectileCoreRadius: 0.08,
+        projectileGlowRadius: 0.2
+    },
+    J_ROCKET_SQUAD: {
+        key: 'J_ROCKET_SQUAD',
+        name: 'J Rocket Squad',
+        range: 4,
+        sightRange: 9,
+        moveRadius: 6,
+        moveSpeed: 0.025,
+        fireIntervalMs: 1200,
+        damage: 3,
+        count: 3,
+        formation: [
+            { pathOffset: 0, lateralOffset: 0 },
+            { pathOffset: 0.72, lateralOffset: -0.58 },
+            { pathOffset: 0.72, lateralOffset: 0.58 }
+        ]
     }
 };
 

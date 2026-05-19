@@ -597,6 +597,9 @@ function getRailMuzzlePosition(w) {
 }
 
 function getPulseMuzzlePosition(w) {
+    if (w.mesh.userData.muzzleOffset) {
+        return w.mesh.localToWorld(w.mesh.userData.muzzleOffset.clone());
+    }
     const barrelGroup = w.mesh.userData.barrelGroup;
     const aimGroup = w.mesh.userData.turretGroup || barrelGroup;
     const yaw = aimGroup ? aimGroup.rotation.y : 0;
@@ -726,7 +729,11 @@ function fireBullet(w, target, damage) {
         } else {
             // 其他武器使用球形子弹
             if (w.type === 1) {
-                aimWeaponAtTarget(w, target);
+                if (typeof w.aimAtTarget === 'function') {
+                    w.aimAtTarget(target);
+                } else {
+                    aimWeaponAtTarget(w, target);
+                }
                 startWeaponRecoil(w, 0.24, 220);
                 bulletPos = getPulseMuzzlePosition(w);
             }

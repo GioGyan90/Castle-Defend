@@ -6,6 +6,7 @@ function setOverlayVisible(visible) {
 }
 
 function showLevelSelect() {
+    refreshLevelDropdown();
     const panel = document.getElementById('levelSelect');
     if (panel) panel.style.display = 'block';
 }
@@ -20,6 +21,34 @@ function startDebugWithLevel() {
     currentLevel = parseInt(levelDropdown.value, 10);
     hideLevelSelect();
     startGame(true);
+}
+
+function getSortedLevelKeys() {
+    if (typeof LEVELS === 'undefined') return [1, 2, 3, 4];
+    return Object.keys(LEVELS)
+        .map(Number)
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+}
+
+function getLastLevelNumber() {
+    const levels = getSortedLevelKeys();
+    return levels[levels.length - 1] || 1;
+}
+
+function refreshLevelDropdown() {
+    const levelDropdown = document.getElementById('levelDropdown');
+    if (!levelDropdown || typeof LEVELS === 'undefined') return;
+    const selected = String(levelDropdown.value || currentLevel || 1);
+    levelDropdown.innerHTML = '';
+    getSortedLevelKeys().forEach(levelKey => {
+        const option = document.createElement('option');
+        option.value = String(levelKey);
+        const cfg = LEVELS[levelKey] || {};
+        option.textContent = cfg.title || `Mission ${levelKey}`;
+        levelDropdown.appendChild(option);
+    });
+    levelDropdown.value = LEVELS[selected] ? selected : String(currentLevel || 1);
 }
 
 function returnToHome() {
@@ -59,10 +88,10 @@ function resetUIForLevel() {
 }
 
 function getNextLevelAfterClear(level) {
-    if (level === 1) return 2;
-    if (level === 2) return 3;
-    if (level === 3) return 4;
-    return 1;
+    const levels = getSortedLevelKeys();
+    const index = levels.indexOf(Number(level));
+    if (index >= 0 && index < levels.length - 1) return levels[index + 1];
+    return levels[0] || 1;
 }
 
 function continueToNextLevel() {
@@ -85,7 +114,7 @@ function configureEndScreenActions(victory, level) {
 
     actions.style.display = 'grid';
     nextBtn.style.display = victory ? '' : 'none';
-    nextBtn.textContent = level >= 4 ? t('restartCampaign') : t('nextLevel');
+    nextBtn.textContent = level >= getLastLevelNumber() ? t('restartCampaign') : t('nextLevel');
     replayBtn.textContent = t('replayLevel');
     homeBtn.textContent = t('home');
 }
@@ -94,6 +123,10 @@ function showEndLevelUI(victory, level, attackMode) {
     const msgEl = document.getElementById('msg');
     const endScreen = document.getElementById('endScreen');
     if (!msgEl || !endScreen) return;
+    const bottomNav = document.getElementById('bottom-nav');
+    const cardPanel = document.getElementById('cardPanel');
+    if (bottomNav) bottomNav.style.display = 'none';
+    if (cardPanel) cardPanel.style.display = 'none';
 
     if (victory) {
         if (level === 1) {
@@ -102,8 +135,10 @@ function showEndLevelUI(victory, level, attackMode) {
             msgEl.textContent = t('mission2Complete');
         } else if (level === 3) {
             msgEl.textContent = t('mission3Complete');
-        } else {
+        } else if (level >= getLastLevelNumber()) {
             msgEl.textContent = t('campaignCleared');
+        } else {
+            msgEl.textContent = `Mission ${level} complete`;
         }
     } else {
         msgEl.textContent = attackMode ? t('timeUp') : t('gameOver');
@@ -112,3 +147,5 @@ function showEndLevelUI(victory, level, attackMode) {
     configureEndScreenActions(victory, level);
     endScreen.style.display = 'block';
 }
+
+window.addEventListener('DOMContentLoaded', refreshLevelDropdown);

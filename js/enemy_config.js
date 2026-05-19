@@ -12,7 +12,10 @@ var ENEMY_CONFIG = {
         hoverArmor: '悬浮装甲',
         wheelbarrow: '独轮炮车',
         portalA: 'Portal A',
-        portalB: 'Portal B'
+        portalB: 'Portal B',
+        tankBoss: 'Tank Boss',
+        chopper: 'Chopper Boss',
+        finalBossAlpha: 'Final Boss Alpha'
     },
     levels: {
         1: [
@@ -184,6 +187,29 @@ function chooseEnemyConfig(level) {
         }
     }
     return entries[entries.length - 1];
+}
+
+function getEnemyConfigByModelType(level, modelType) {
+    const candidates = [];
+    const levelEntries = ENEMY_CONFIG.levels[level] || [];
+    levelEntries.forEach(entry => {
+        if (entry.modelType === modelType) candidates.push(entry);
+    });
+    Object.keys(ENEMY_CONFIG.levels).forEach(key => {
+        (ENEMY_CONFIG.levels[key] || []).forEach(entry => {
+            if (entry.modelType === modelType) candidates.push(entry);
+        });
+    });
+    if (candidates.length > 0) return Object.assign({}, candidates[0]);
+    return {
+        modelType,
+        health: 6,
+        speedMin: 0.018,
+        speedMax: 0.03,
+        scale: 1,
+        isDrone: getEnemyCategory(modelType) === 'air',
+        category: getEnemyCategory(modelType)
+    };
 }
 
 function getEnemySpeed(enemyConfig) {

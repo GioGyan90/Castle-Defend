@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -9,7 +9,7 @@
 <body>
 
 <div id="status-bar" style="display:none;">
-    <div class="version-tag" data-i18n="versionLabel">V127</div>
+    <div class="version-tag" data-i18n="versionLabel">V162</div>
     <div class="lvl-tag">M:<span id="levelVal">1</span></div>
     <div id="hpItem" class="stat-item">HP <span id="livesVal">5</span></div>
     <div id="timerItem" class="stat-item" style="display:none;">TIME <span id="timerVal">60</span></div>
@@ -23,10 +23,10 @@
             <button type="button" data-lang-option="zh" onclick="setGameLanguage('zh')">中</button>
             <button type="button" data-lang-option="en" onclick="setGameLanguage('en')">EN</button>
         </div>
-        <div class="menu-kicker" data-i18n="menuKicker">V127 战术防线</div>
+        <div class="menu-kicker" data-i18n="menuKicker">V162 战术防线</div>
         <h2 id="modalTitle" data-i18n="title">Castle Defend</h2>
-        <p id="modalDesc" class="fresh-menu-desc" data-i18n="menuDesc">部署炮塔、空袭与卡牌，在四个任务中守住基地并完成反攻。</p>
-        <p id="modalDesc">选择你的部署方式，检查敌军图鉴，或直接进入城堡防线。</p>
+        <p id="modalDesc" class="fresh-menu-desc" data-i18n="menuDesc">部署炮塔、空袭与卡牌，在任务中守住基地并完成反攻。</p>
+        <p id="modalHint">选择部署方式，检查敌军图鉴，或直接进入战术防线。</p>
 
         <div class="menu-actions">
             <button class="menu-btn play-start-btn" onclick="startGame(false)" aria-label="开始游戏">
@@ -89,8 +89,7 @@
                         <th>时间</th>
                     </tr>
                 </thead>
-                <tbody id="leaderboardBody">
-                </tbody>
+                <tbody id="leaderboardBody"></tbody>
             </table>
         </div>
         <div class="leaderboard-footer">
@@ -117,11 +116,11 @@
     <div class="card-panel-title">CARDS</div>
     <div class="card-shop">
         <button id="cardBtnJ" class="card-buy-btn" onclick="buyCard('J')" title="J: Tower fire rate +25%">
-            <span class="playing-card compact"><span class="card-corner top">J</span><span class="card-suit">&spades;</span><span class="card-corner bottom">J</span></span>
+            <span class="playing-card compact"><span class="card-corner top">J</span><span class="card-suit">&spades;</span><span class="card-corner bottom">J</span><span class="card-support-robot" aria-hidden="true"><span class="robot-head"></span><span class="robot-body"></span><span class="robot-launcher"></span><span class="robot-leg left"></span><span class="robot-leg right"></span></span></span>
             <span class="card-price">15</span>
         </button>
         <button id="cardBtnQ" class="card-buy-btn" onclick="buyCard('Q')" title="Q: Tower damage +5, fire rate +15%">
-            <span class="playing-card compact"><span class="card-corner top">Q</span><span class="card-suit">&spades;</span><span class="card-corner bottom">Q</span></span>
+            <span class="playing-card compact"><span class="card-corner top">Q</span><span class="card-suit">&spades;</span><span class="card-corner bottom">Q</span><span class="card-support-helicopter" aria-hidden="true"><span class="heli-rotor"></span><span class="heli-body"></span><span class="heli-tail"></span></span></span>
             <span class="card-price">25</span>
         </button>
         <button id="cardBtnK" class="card-buy-btn" onclick="buyCard('K')" title="K: Tower damage +10, fire rate +20%, +5 PTS/s">
@@ -151,22 +150,7 @@
             <span id="price4" class="price-tag">30</span>
             <span id="cooldown4" class="cooldown-mask"></span>
         </button>
-        <button id="btnAttackHeavy" class="weapon-btn attack-btn" onclick="buyAttackUnit('heavyRobot')" aria-label="Heavy Robot" title="Heavy Robot">
-            <span id="previewAttackHeavy" class="weapon-preview"></span>
-            <span id="priceAttackHeavy" class="price-tag">10</span>
-        </button>
-        <button id="btnAttackChopper" class="weapon-btn attack-btn" onclick="buyAttackUnit('chopper')" aria-label="Chopper" title="Chopper">
-            <span id="previewAttackChopper" class="weapon-preview"></span>
-            <span id="priceAttackChopper" class="price-tag">40</span>
-        </button>
-        <button id="btnAttackFinalBossAlpha" class="weapon-btn attack-btn" onclick="buyAttackUnit('finalBossAlpha')" aria-label="Final Boss Alpha" title="Final Boss Alpha">
-            <span id="previewAttackFinalBossAlpha" class="weapon-preview"></span>
-            <span id="priceAttackFinalBossAlpha" class="price-tag">160</span>
-        </button>
-        <button id="btnAttackPortalB" class="weapon-btn attack-btn" onclick="buyAttackUnit('portalB')" aria-label="Portal B" title="Portal B">
-            <span id="previewAttackPortalB" class="weapon-preview"></span>
-            <span id="priceAttackPortalB" class="price-tag">80</span>
-        </button>
+        <div id="attackUnitButtons" class="attack-unit-buttons"></div>
     </div>
     <button id="btnSell" onclick="toggleSellMode()" aria-label="Recycle" title="Recycle">♻</button>
 </div>
@@ -192,10 +176,13 @@ window.CANNON = CANNON;
 <script src="js/config.js"></script>
 <script src="js/map_assets.js"></script>
 <script src="js/road_assets.js"></script>
+<script src="js/background_art_assets.js"></script>
 <script src="js/maps.js"></script>
 <script src="js/weapons.js"></script>
 <script src="js/enemies.js"></script>
 <script src="js/enemy_ai.js"></script>
+<script src="js/rocket_robot_assets.js"></script>
+<script src="helicopter_model_standalone.js"></script>
 <script src="js/imported_chopper_model.js"></script>
 <script src="js/castle.js"></script>
 <script src="js/space_base.js"></script>
@@ -203,8 +190,13 @@ window.CANNON = CANNON;
 <script src="js/i18n.js"></script>
 <script src="js/scene_announcer.js"></script>
 <script src="js/cards.js"></script>
+<script src="js/animation_assets.js"></script>
 <script src="js/game.js"></script>
+<script src="js/q_helicopter_support.js"></script>
+<script src="js/j_rocket_squad_support.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/gallery.js"></script>
 </body>
 </html>
+
+
