@@ -1079,9 +1079,8 @@ var LEVELS = {
                 intervalMs: 4250,
                 path: "main",
                 health: 280,
-                speedMin: 0.02,
-                speedMax: 0.03,
-                scale: 1.2
+                scale: 1.2,
+                speed: 0.01
             },
             {
                 label: "Air follow-up",
@@ -1091,9 +1090,8 @@ var LEVELS = {
                 intervalMs: 530,
                 path: "main",
                 health: 45,
-                speedMin: 0.02,
-                speedMax: 0.03,
-                scale: 0.95
+                scale: 0.95,
+                speed: 0.02
             },
             {
                 label: "Wave 3",
@@ -1103,7 +1101,7 @@ var LEVELS = {
                 intervalMs: 6080,
                 path: "main",
                 health: 200,
-                speed: 0.02,
+                speed: 0.01,
                 scale: 1
             },
             {
@@ -1114,7 +1112,7 @@ var LEVELS = {
                 intervalMs: 2150,
                 path: "alternate",
                 health: 320,
-                speed: 0.02,
+                speed: 0,
                 scale: 1
             }
         ],
