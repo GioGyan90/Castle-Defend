@@ -1025,7 +1025,7 @@ var LEVELS = {
         enemies: 70,
         bossHp: 250,
         title: "Mission 8",
-        startingScore: 30,
+        startingScore: 60,
         availableDefenseWeapons: [
             2,
             3,
