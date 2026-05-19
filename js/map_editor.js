@@ -52,6 +52,7 @@ const els = {
     base: document.getElementById('baseInput'),
     canvas: document.getElementById('mapCanvas'),
     pointsList: document.getElementById('pointsList'),
+    altPointsList: document.getElementById('altPointsList'),
     slotsList: document.getElementById('slotsList'),
     enemyTowersList: document.getElementById('enemyTowersList'),
     slotsCard: document.getElementById('slotsCard'),
@@ -71,6 +72,9 @@ const els = {
     fallbackFile: document.getElementById('fallbackFileInput'),
     levelImportFile: document.getElementById('levelImportFileInput'),
     addPoint: document.getElementById('addPointBtn'),
+    addAltPoint: document.getElementById('addAltPointBtn'),
+    copyAltPath: document.getElementById('copyAltPathBtn'),
+    clearAltPath: document.getElementById('clearAltPathBtn'),
     addSlot: document.getElementById('addSlotBtn'),
     addEnemyTower: document.getElementById('addEnemyTowerBtn'),
     attackUnitPicker: document.getElementById('attackUnitPicker'),
@@ -118,6 +122,8 @@ function roundValue(value) {
 function ensureLevelShape(level) {
     if (!Array.isArray(level.points)) level.points = [[0, 0], [4, 0]];
     if (!Array.isArray(level.slots)) level.slots = [];
+    if (level.altEnemyPoints !== undefined && !Array.isArray(level.altEnemyPoints)) delete level.altEnemyPoints;
+    if (level.altRoadPoints !== undefined && !Array.isArray(level.altRoadPoints)) delete level.altRoadPoints;
     if (level.points.length < 2) level.points.push([level.points[0][0] + 4, level.points[0][1]]);
     if (level.attackMode) {
         ensureAttackRules(level);
@@ -480,6 +486,39 @@ function renderPointRows() {
         });
         row.append(label, xInput, zInput, deleteBtn);
         els.pointsList.appendChild(row);
+    });
+}
+
+function renderAltPointRows() {
+    const level = getLevel();
+    if (!els.altPointsList) return;
+    const altPoints = Array.isArray(level.altEnemyPoints) ? level.altEnemyPoints : [];
+    els.altPointsList.innerHTML = '';
+    if (!altPoints.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-note';
+        empty.textContent = '未设置 alternate 路径；批次选择 alternate 时会回落到主路。';
+        els.altPointsList.appendChild(empty);
+        return;
+    }
+    altPoints.forEach((point, index) => {
+        const row = document.createElement('div');
+        row.className = 'data-row';
+        const label = document.createElement('span');
+        label.textContent = index === 0 ? 'A生' : (index === altPoints.length - 1 ? 'A基' : `A${index}`);
+        const xInput = createNumberInput(point[0], value => { point[0] = value; });
+        const zInput = createNumberInput(point[1], value => { point[1] = value; });
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.textContent = '×';
+        deleteBtn.disabled = altPoints.length <= 2;
+        deleteBtn.addEventListener('click', () => {
+            altPoints.splice(index, 1);
+            if (!altPoints.length) delete level.altEnemyPoints;
+            renderAll();
+        });
+        row.append(label, xInput, zInput, deleteBtn);
+        els.altPointsList.appendChild(row);
     });
 }
 
@@ -962,6 +1001,28 @@ function renderCanvas() {
     ctx.lineWidth = 3;
     ctx.stroke();
 
+    const altPoints = Array.isArray(level.altEnemyPoints) ? level.altEnemyPoints : [];
+    if (altPoints.length > 1) {
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.setLineDash([14, 10]);
+        ctx.strokeStyle = 'rgba(255, 184, 108, 0.82)';
+        ctx.lineWidth = Math.max(8, roadWidth * 0.42);
+        ctx.beginPath();
+        altPoints.forEach((point, index) => {
+            const c = toCanvas(point);
+            if (index === 0) ctx.moveTo(c.x, c.y);
+            else ctx.lineTo(c.x, c.y);
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.strokeStyle = 'rgba(255, 238, 184, 0.95)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+    }
+
     level.points.forEach((point, index) => {
         const c = toCanvas(point);
         if (index > 0 && index < level.points.length - 1) {
@@ -992,6 +1053,25 @@ function renderCanvas() {
             ctx.fill();
             ctx.stroke();
         }
+        ctx.restore();
+    });
+
+    altPoints.forEach((point, index) => {
+        const c = toCanvas(point);
+        const isActive = draggedNode && draggedNode.type === 'altPoint' && draggedNode.index === index;
+        ctx.save();
+        ctx.lineWidth = isActive ? 5 : 3;
+        ctx.strokeStyle = isActive ? '#ffffff' : '#ffb86c';
+        ctx.fillStyle = index === 0 ? '#3ddc97' : (index === altPoints.length - 1 ? '#ffd166' : '#ffdfaa');
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, index === 0 || index === altPoints.length - 1 ? 12 : 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#162033';
+        ctx.font = '900 10px Segoe UI';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(index === 0 ? 'A' : index, c.x, c.y);
         ctx.restore();
     });
 
@@ -1035,6 +1115,7 @@ function renderAll() {
     syncLevelFields();
     updatePanelVisibility();
     renderPointRows();
+    renderAltPointRows();
     renderSlotRows();
     renderEnemyTowerRows();
     renderWeaponOptions();
@@ -1321,6 +1402,32 @@ els.addPoint.addEventListener('click', () => {
     renderAll();
 });
 
+if (els.copyAltPath) els.copyAltPath.addEventListener('click', () => {
+    const level = getLevel();
+    level.altEnemyPoints = JSON.parse(JSON.stringify(level.points || []));
+    delete level.altRoadPoints;
+    renderAll();
+});
+
+if (els.addAltPoint) els.addAltPoint.addEventListener('click', () => {
+    const level = getLevel();
+    if (!Array.isArray(level.altEnemyPoints) || level.altEnemyPoints.length < 2) {
+        level.altEnemyPoints = JSON.parse(JSON.stringify(level.points || [[0, 0], [4, 0]]));
+    } else {
+        const last = level.altEnemyPoints[level.altEnemyPoints.length - 1];
+        level.altEnemyPoints.splice(level.altEnemyPoints.length - 1, 0, [roundValue(last[0] - 2), roundValue(last[1])]);
+    }
+    delete level.altRoadPoints;
+    renderAll();
+});
+
+if (els.clearAltPath) els.clearAltPath.addEventListener('click', () => {
+    const level = getLevel();
+    delete level.altEnemyPoints;
+    delete level.altRoadPoints;
+    renderAll();
+});
+
 els.addSlot.addEventListener('click', () => {
     const level = getLevel();
     if (level.attackMode) return;
@@ -1451,6 +1558,14 @@ function findCanvasNodeAt(canvasPoint) {
         const hitRadius = isEndPoint ? 25 : Math.max(22, ((level.roadWidth || DEFAULT_ROAD_WIDTH) * canvasView.scale) * 0.42);
         if (distance(canvasPoint, center) <= hitRadius) return { type: 'point', index: i };
     }
+    if (Array.isArray(level.altEnemyPoints)) {
+        for (let i = level.altEnemyPoints.length - 1; i >= 0; i--) {
+            const center = canvasView.toCanvas(level.altEnemyPoints[i]);
+            const isEndPoint = i === 0 || i === level.altEnemyPoints.length - 1;
+            const hitRadius = isEndPoint ? 22 : 20;
+            if (distance(canvasPoint, center) <= hitRadius) return { type: 'altPoint', index: i };
+        }
+    }
     return null;
 }
 
@@ -1461,6 +1576,10 @@ function applyDraggedNode(canvasPoint) {
     if (draggedNode.type === 'point' && level.points[draggedNode.index]) {
         level.points[draggedNode.index][0] = x;
         level.points[draggedNode.index][1] = z;
+    } else if (draggedNode.type === 'altPoint' && level.altEnemyPoints && level.altEnemyPoints[draggedNode.index]) {
+        level.altEnemyPoints[draggedNode.index][0] = x;
+        level.altEnemyPoints[draggedNode.index][1] = z;
+        delete level.altRoadPoints;
     } else if (draggedNode.type === 'slot' && level.slots[draggedNode.index]) {
         level.slots[draggedNode.index].x = x;
         level.slots[draggedNode.index].z = z;

@@ -597,6 +597,9 @@ function getRailMuzzlePosition(w) {
 }
 
 function getPulseMuzzlePosition(w) {
+    if (w.mesh.userData.muzzleObject && typeof w.mesh.userData.muzzleObject.getWorldPosition === 'function') {
+        return w.mesh.userData.muzzleObject.getWorldPosition(new THREE.Vector3());
+    }
     if (w.mesh.userData.muzzleOffset) {
         return w.mesh.localToWorld(w.mesh.userData.muzzleOffset.clone());
     }

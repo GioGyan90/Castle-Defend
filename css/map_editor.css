@@ -30,6 +30,10 @@ button,
     text-decoration: none;
 }
 
+.tool-link {
+    background: #0f766e;
+}
+
 button:disabled {
     opacity: 0.45;
     cursor: not-allowed;
@@ -248,6 +252,19 @@ input[readonly] {
     margin-bottom: 10px;
 }
 
+.mini-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.mini-actions button {
+    min-height: 30px;
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
 .card-head h2 {
     margin: 0;
     font-size: 16px;
@@ -277,6 +294,19 @@ input[readonly] {
     min-height: 34px;
     padding: 0;
     background: #d63031;
+}
+
+.alt-path-card .data-row span {
+    color: #ffb86c;
+}
+
+.empty-note {
+    color: #94a3b8;
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 8px;
+    border: 1px dashed rgba(148, 163, 184, 0.36);
+    border-radius: 6px;
 }
 
 .rules-card {

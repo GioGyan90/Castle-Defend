@@ -216,6 +216,63 @@ function getJRocketTarget(unit, range) {
     return getJRocketTargetFromPosition(unit.mesh.position, range);
 }
 
+function getJRocketHorizontalDistance(a, b) {
+    if (!a || !b) return Infinity;
+    const dx = a.x - b.x;
+    const dz = a.z - b.z;
+    return Math.sqrt(dx * dx + dz * dz);
+}
+
+function getJRocketCollisionEnemy(unit) {
+    if (!unit || !unit.mesh) return null;
+    let bestEnemy = null;
+    let bestDistance = Infinity;
+    getJRocketEnemies().forEach(enemy => {
+        if (!enemy || enemy.isDead || enemy.isPortal || !enemy.mesh) return;
+        const distance = getJRocketHorizontalDistance(unit.mesh.position, enemy.mesh.position);
+        const enemyScale = enemy.mesh && enemy.mesh.scale ? Math.max(enemy.mesh.scale.x || 1, enemy.mesh.scale.z || 1, 1) : 1;
+        const enemyRadius = enemy.isBoss ? 1.95 * enemyScale : 0.52 * enemyScale;
+        const collisionRadius = 0.54 + enemyRadius;
+        if (distance <= collisionRadius && distance < bestDistance) {
+            bestDistance = distance;
+            bestEnemy = enemy;
+        }
+    });
+    return bestEnemy;
+}
+
+function triggerJRocketSquadDestroyed(unit) {
+    if (!unit || !unit.mesh) return;
+    const position = unit.mesh.position.clone().add(new THREE.Vector3(0, 0.45, 0));
+    if (typeof createFriendlyUnitExplosionEffect === 'function') {
+        createFriendlyUnitExplosionEffect(position, 2.1);
+    } else if (typeof createExplosionEffect === 'function') {
+        createExplosionEffect(position, 1.15);
+    }
+    if (typeof announceBattleEvent === 'function') {
+        announceBattleEvent('j-rocket-down', 'J squad down', position, 850);
+    }
+    if (typeof playTone === 'function') {
+        playTone(110, 'sawtooth', 0.16, 0.055);
+    }
+    resetJRocketSquadSupport();
+    if (typeof releaseCardPurchase === 'function') {
+        releaseCardPurchase('J');
+    }
+}
+
+function checkJRocketSquadCollision() {
+    if (!J_ROCKET_SQUAD.active) return false;
+    for (let i = 0; i < J_ROCKET_SQUAD.units.length; i++) {
+        const unit = J_ROCKET_SQUAD.units[i];
+        if (unit && unit.mesh && getJRocketCollisionEnemy(unit)) {
+            triggerJRocketSquadDestroyed(unit);
+            return true;
+        }
+    }
+    return false;
+}
+
 function getJRocketSquadTarget(range) {
     let bestTarget = null;
     let bestDistance = Infinity;
@@ -319,12 +376,16 @@ function moveJRocketUnitToward(unit, destination, time) {
 
 function aimJRocketUnitAtTarget(unit, target) {
     if (!unit || !unit.mesh || !target || !target.mesh) return;
-    const aimGroup = unit.mesh.userData.turretGroup || unit.mesh.userData.barrelGroup;
-    if (!aimGroup) return;
     const dx = target.mesh.position.x - unit.mesh.position.x;
     const dz = target.mesh.position.z - unit.mesh.position.z;
     const worldYaw = Math.atan2(dx, dz);
-    aimGroup.rotation.y = worldYaw - unit.mesh.rotation.y;
+    const localYaw = worldYaw - unit.mesh.rotation.y;
+    if (typeof setRocketRobotAimYaw === 'function' && setRocketRobotAimYaw(unit.mesh, localYaw, performance.now())) {
+        return;
+    }
+    const aimGroup = unit.mesh.userData.turretGroup || unit.mesh.userData.barrelGroup;
+    if (!aimGroup) return;
+    aimGroup.rotation.y = localYaw;
 }
 
 function createJRocketUnit(index, now) {
@@ -432,6 +493,7 @@ function updateJRocketSquadSupport(time) {
     const squadTarget = getJRocketSquadTarget(config.sightRange);
 
     J_ROCKET_SQUAD.units.forEach((unit, index) => {
+        if (!J_ROCKET_SQUAD.active) return;
         if (!unit || !unit.mesh) return;
         if (unit.state === 'entering') {
             updateJRocketUnitEnter(unit, time);
@@ -445,6 +507,11 @@ function updateJRocketSquadSupport(time) {
         if (sightTarget) {
             aimJRocketUnitAtTarget(unit, sightTarget);
             unit.lastTargetSeen = time;
+        }
+
+        if (getJRocketCollisionEnemy(unit)) {
+            triggerJRocketSquadDestroyed(unit);
+            return;
         }
 
         if (unit.state === 'guarding' && sightTarget) {
@@ -481,3 +548,4 @@ function updateJRocketSquadSupport(time) {
 window.activateJRocketSquadSupport = activateJRocketSquadSupport;
 window.resetJRocketSquadSupport = resetJRocketSquadSupport;
 window.updateJRocketSquadSupport = updateJRocketSquadSupport;
+window.checkJRocketSquadCollision = checkJRocketSquadCollision;

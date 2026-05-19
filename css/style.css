@@ -191,6 +191,11 @@ body {
     opacity: 0.88;
 }
 
+#bottom-nav .weapon-btn.locked {
+    filter: grayscale(0.8);
+    opacity: 0.52;
+}
+
 .cooldown-mask {
     position: absolute;
     inset: 0;
@@ -208,6 +213,12 @@ body {
 
 #bottom-nav .weapon-btn.cooling .cooldown-mask {
     display: flex;
+}
+
+#bottom-nav .weapon-btn.locked .cooldown-mask {
+    display: flex;
+    background: rgba(12, 16, 24, 0.58);
+    color: #ffd000;
 }
 
 .price-tag { 

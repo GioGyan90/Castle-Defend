@@ -571,6 +571,9 @@ function clearRunObjects() {
     if (typeof resetJRocketSquadSupport === 'function') {
         resetJRocketSquadSupport();
     }
+    if (typeof resetKOilWellSupport === 'function') {
+        resetKOilWellSupport();
+    }
     weapons.forEach(w => {
         scene.remove(w.mesh);
         if (w.padMesh) {
@@ -805,9 +808,13 @@ function getAirstrikeCooldownRemaining(time = performance.now()) {
     return Math.max(0, airstrikeCooldownUntil - time);
 }
 
+function isAirstrikeUnlockedByK() {
+    return typeof hasActiveCard === 'function' && hasActiveCard('K');
+}
+
 function buyAirstrike() {
     const config = getWeaponConfig(4);
-    if (!isDefenseWeaponAvailable(4) || gameOver || isPaused || score < config.price || getAirstrikeCooldownRemaining() > 0) return;
+    if (!isAirstrikeUnlockedByK() || !isDefenseWeaponAvailable(4) || gameOver || isPaused || score < config.price || getAirstrikeCooldownRemaining() > 0) return;
 
     isSellMode = false;
     selectedWeaponType = null;
@@ -988,7 +995,7 @@ function createAirstrikeBombMesh() {
 function deployAirstrike(target) {
     const config = getWeaponConfig(4);
     const now = performance.now();
-    if (!isDefenseWeaponAvailable(4) || score < config.price || getAirstrikeCooldownRemaining(now) > 0) return;
+    if (!isAirstrikeUnlockedByK() || !isDefenseWeaponAvailable(4) || score < config.price || getAirstrikeCooldownRemaining(now) > 0) return;
     if (typeof announceBattleEvent === 'function') {
         announceBattleEvent('airstrike-deploy', t('airstrike'), target.position, 1300);
     }
@@ -1259,16 +1266,18 @@ function updateAirstrikeButton(time = performance.now()) {
     const remaining = getAirstrikeCooldownRemaining(time);
     const cooldownEl = document.getElementById('cooldown4');
     const available = isDefenseWeaponAvailable(4) && !isAttackMode();
+    const unlocked = isAirstrikeUnlockedByK();
     btn.style.display = available ? '' : 'none';
-    if (!available && selectedTacticalType === 'airstrike') {
+    if ((!available || !unlocked) && selectedTacticalType === 'airstrike') {
         selectedTacticalType = null;
         clearWeaponSelectionUi();
     }
     updateTacticalCursor();
-    btn.disabled = !available || gameOver || isPaused || score < config.price || remaining > 0;
+    btn.disabled = !available || !unlocked || gameOver || isPaused || score < config.price || remaining > 0;
     btn.classList.toggle('cooling', remaining > 0);
+    btn.classList.toggle('locked', available && !unlocked);
     if (cooldownEl) {
-        cooldownEl.textContent = remaining > 0 ? Math.ceil(remaining / 1000) : '';
+        cooldownEl.textContent = available && !unlocked ? 'K' : (remaining > 0 ? Math.ceil(remaining / 1000) : '');
     }
 }
 
@@ -1378,6 +1387,35 @@ function createBossDeathExplosionEffect(position, sourceEnemy) {
         createExplosionEffect(effectPosition, Math.max(2.8, visualSize * 0.5));
     }
 }
+
+function createFriendlyUnitExplosionEffect(position, visualSize = 2.2) {
+    const effectPosition = position.clone();
+    effectPosition.y = Math.max(effectPosition.y, 0.35);
+
+    if (typeof CompactExplosionAnimation === 'function') {
+        const animation = new CompactExplosionAnimation(scene, effectPosition, {
+            radius: Math.max(1.8, visualSize),
+            duration: 1.1,
+            directionAngle: 20 + Math.random() * 320,
+            amplitude: 0.58,
+            quality: window.innerWidth < 700 ? 0.28 : 0.38
+        });
+        animationAssets.push(animation);
+    } else if (typeof createBossExplosionAnimation === 'function') {
+        const animation = createBossExplosionAnimation(scene, effectPosition, Math.max(3.5, visualSize * 2.2), {
+            duration: 1.25,
+            directionAngle: 20 + Math.random() * 320,
+            amplitude: 0.52,
+            quality: window.innerWidth < 700 ? 0.32 : 0.42,
+            radius: Math.max(1.8, visualSize)
+        });
+        animationAssets.push(animation);
+    } else {
+        createExplosionEffect(effectPosition, Math.max(1.1, visualSize * 0.55));
+    }
+}
+
+window.createFriendlyUnitExplosionEffect = createFriendlyUnitExplosionEffect;
 
 function updateAnimationAssets(time) {
     for (let i = animationAssets.length - 1; i >= 0; i--) {
@@ -2208,6 +2246,8 @@ function gameLoop(time) {
     if (typeof updateEnemyAI === 'function') {
         // 使用新的 AI 系统处理行走、转向和位置微调
         updateEnemyAI(enemies, delta);
+        if (typeof checkJRocketSquadCollision === 'function') checkJRocketSquadCollision();
+        if (typeof checkQHelicopterCollision === 'function') checkQHelicopterCollision();
         
         // 检查是否有敌人到达终点（需要在这里处理，因为 AI 模块不直接访问游戏状态）
         for (let i = enemies.length - 1; i >= 0; i--) {
@@ -2275,6 +2315,9 @@ function gameLoop(time) {
     }
     if (typeof updateJRocketSquadSupport === 'function') {
         updateJRocketSquadSupport(time);
+    }
+    if (typeof updateKOilWellSupport === 'function') {
+        updateKOilWellSupport(time);
     }
     
     // 武器射击

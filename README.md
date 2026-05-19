@@ -1,6 +1,62 @@
-# Castle Defend V162
+# Castle Defend V170
 
 Mobile-friendly tower defense and assault prototype.
+
+## V170 Notes
+
+- Version text is centralized as `APP_VERSION = 'V170'`.
+- Fixed Q support helicopter facing by flipping the visual nose/tail offset while keeping shots aimed at the target.
+- Friendly J rocket robots and Q helicopter now use the compact explosion animation when destroyed.
+
+## V169 Notes
+
+- Version text is centralized as `APP_VERSION = 'V169'`.
+- Q support helicopter movement, facing, rotor, and timing values now live in `js/weapon_config.js`.
+- Q support helicopter now turns its visible body toward the target while firing and moves out more slowly.
+- K oil pump support is larger, uses a warmer non-base palette, and shows K income text above the pump model.
+
+## V168 Notes
+
+- Version text is centralized as `APP_VERSION = 'V168'`.
+- Mission 5 now keeps the visible road aligned with the user map; alternate enemy points default to the same 5-shaped route without drawing an extra road.
+- Map Editor can now copy, add, clear, row-edit, and drag `altEnemyPoints`, and saved maps include that alternate path data.
+- J/Q support collision checks now run earlier with larger boss contact radii so bosses explode friendly support units instead of pushing them aside.
+
+## V167 Notes
+
+- Version text is centralized as `APP_VERSION = 'V167'`.
+- Fixed Mission 5 alternate enemy path so it connects back to the player base.
+- Mission 5 alternate path is now rendered as a visible road, preventing J/Q support units from chasing enemies along a hidden dead-end path.
+
+## V166 Notes
+
+- Version text is centralized as `APP_VERSION = 'V166'`.
+- Added collision death logic for J Rocket Squad robots and Q Support Helicopter.
+- When enemies collide with J/Q support units, a small explosion plays and the matching card returns to the shop.
+- J/Q card effects now drop when their support unit is destroyed, matching the unpurchased state.
+
+## V165 Notes
+
+- Version text is centralized as `APP_VERSION = 'V165'`.
+- Added a K-card oil pump support model built from the three-segment mechanical arm style.
+- K-card oil pump now appears on the player base when the K card is activated and animates during play.
+- Airstrike is now locked until K card activation; the airstrike button shows a K lock marker before activation.
+- Animation Assets includes the K Oil Pump model for preview.
+
+## V164 Notes
+
+- Version text is centralized as `APP_VERSION = 'V164'`.
+- J Rocket Squad robots now rotate their upper body toward targets while firing instead of moving only the launcher barrel.
+- Friendly rocket robot hands now stay locked around the launcher grip for a steadier firing pose.
+- Friendly rocket robot model origin is grounded so feet stay above the road surface in-game.
+- Animation Assets now keeps showcased models above the grid to avoid foot or chassis clipping.
+
+## V163 Notes
+
+- Version text is centralized as `APP_VERSION = 'V163'`.
+- Fixed Q Support Helicopter activation so the base helicopter can enter its combat loop again.
+- Q Support Helicopter now mirrors Rail Laser firing rhythm, burst count, damage, and projectile behavior while keeping its own movement and sight settings.
+- Added direct top navigation between Map Editor, Animation Assets, and the game page.
 
 ## V162 Notes
 

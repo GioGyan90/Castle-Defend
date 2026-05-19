@@ -54,6 +54,16 @@
         model.scale.multiplyScalar(targetSize / maxDim);
     }
 
+    function keepModelAboveGround(model, groundY) {
+        if (!model) return;
+        groundY = Number.isFinite(groundY) ? groundY : 0.08;
+        model.updateMatrixWorld(true);
+        var box = new THREE.Box3().setFromObject(model);
+        if (Number.isFinite(box.min.y) && box.min.y < groundY) {
+            model.position.y += groundY - box.min.y;
+        }
+    }
+
     function spinNestedRotors(root, speedScale) {
         speedScale = speedScale || 1;
         root.traverse(function(child) {
@@ -859,6 +869,7 @@
         } else {
             this.model.rotation.y += 0.01 * this.amplitude;
         }
+        keepModelAboveGround(this.model, 0.08);
     };
 
     UnitShowcaseAnimation.prototype.setAnimationConfig = function(config) {
@@ -906,6 +917,7 @@
             'asset-robot-streamline-helmet': ['Streamline Robot Helmet', 'Mechanical Assets'],
             'asset-robot-torso-armor': ['Robot Torso Armor', 'Mechanical Assets'],
             'asset-rocket-launcher': ['Rocket Launcher', 'Mechanical Assets'],
+            'asset-k-oil-well': ['K Oil Pump', 'Mechanical Assets'],
             'asset-friendly-rocket-robot': ['Friendly Rocket Robot', 'Friendly Units'],
             'tower-pulse': ['Pulse Cannon', 'Friendly Units'],
             'tower-rail': ['Rail Laser', 'Friendly Units'],
@@ -1207,6 +1219,21 @@
                 build: function() { return createRocketLauncherModel(THREE); },
                 animate: function(model, time, amplitude) {
                     model.rotation.z = Math.sin(time * 0.003) * 0.08 * amplitude;
+                }
+            }),
+            makeUnitAsset({
+                id: 'asset-k-oil-well',
+                name: 'K Oil Pump',
+                group: 'Mechanical Assets',
+                previewSize: 4.6,
+                defaults: {
+                    radius: 4.6,
+                    amplitude: 1,
+                    directionAngle: 28
+                },
+                build: function() { return createKOilWellModel(THREE); },
+                animate: function(model, time, amplitude) {
+                    if (typeof animateKOilWellModel === 'function') animateKOilWellModel(model, time, amplitude);
                 }
             }),
             makeUnitAsset({

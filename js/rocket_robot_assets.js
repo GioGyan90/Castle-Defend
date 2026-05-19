@@ -367,33 +367,39 @@
     function createRocketRobotModel(THREERef) {
         const THREE = getThree(THREERef);
         const group = new THREE.Group();
+        const bodyRoot = new THREE.Group();
+        bodyRoot.name = 'rocket-robot-grounded-root';
+        group.add(bodyRoot);
         const materials = createRocketRobotMaterials(THREE);
+        const upperBody = new THREE.Group();
+        upperBody.name = 'rocket-robot-upper-body';
+        bodyRoot.add(upperBody);
 
         const torso = createRocketRobotTorsoComponent(THREE, materials);
         torso.position.set(0, 0.78, 0);
         torso.scale.setScalar(0.52);
-        group.add(torso);
+        upperBody.add(torso);
 
         const helmet = createRocketRobotHelmetComponent(THREE, materials);
         helmet.position.set(0, 1.72, 0.05);
         helmet.scale.setScalar(0.42);
-        group.add(helmet);
+        upperBody.add(helmet);
 
         const leftArm = createRocketRobotArmComponent(THREE, materials, -1);
         leftArm.position.set(-0.58, 1.52, 0.18);
-        group.add(leftArm);
+        upperBody.add(leftArm);
 
         const rightArm = createRocketRobotArmComponent(THREE, materials, 1);
         rightArm.position.set(0.58, 1.54, 0.1);
-        group.add(rightArm);
+        upperBody.add(rightArm);
 
         const leftLeg = createRocketRobotLegComponent(THREE, materials, -1);
         leftLeg.position.set(-0.23, 0.58, 0);
-        group.add(leftLeg);
+        bodyRoot.add(leftLeg);
 
         const rightLeg = createRocketRobotLegComponent(THREE, materials, 1);
         rightLeg.position.set(0.23, 0.58, 0);
-        group.add(rightLeg);
+        bodyRoot.add(rightLeg);
 
         const launcherPivot = new THREE.Group();
         launcherPivot.position.set(0, 1.6, 0.12);
@@ -402,19 +408,45 @@
         launcher.rotation.z = -0.08;
         launcher.scale.setScalar(0.82);
         launcherPivot.add(launcher);
-        group.add(launcherPivot);
+        upperBody.add(launcherPivot);
+
+        const muzzleMarker = new THREE.Object3D();
+        muzzleMarker.position.set(0.44, 1.78, 1.05);
+        upperBody.add(muzzleMarker);
 
         const frontGrip = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.34, 0.12), materials.dark);
         frontGrip.position.set(0.35, 1.28, 0.82);
         frontGrip.rotation.x = -0.75;
-        group.add(frontGrip);
+        upperBody.add(frontGrip);
+
+        const rearGrip = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.12), materials.dark);
+        rearGrip.position.set(0.56, 1.36, 0.32);
+        rearGrip.rotation.x = -0.55;
+        upperBody.add(rearGrip);
+
+        const leftGripHand = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.16, 0.24), materials.side);
+        leftGripHand.position.set(0.32, 1.2, 0.82);
+        leftGripHand.rotation.x = -0.58;
+        upperBody.add(leftGripHand);
+
+        const rightGripHand = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.16, 0.24), materials.side);
+        rightGripHand.position.set(0.54, 1.27, 0.34);
+        rightGripHand.rotation.x = -0.48;
+        upperBody.add(rightGripHand);
+
+        bodyRoot.updateMatrixWorld(true);
+        const footBox = new THREE.Box3().setFromObject(bodyRoot);
+        bodyRoot.position.y += Math.max(0, -footBox.min.y + 0.04);
 
         group.userData = {
             rocketRobot: true,
+            bodyRoot,
+            upperBody,
             turretGroup: launcherPivot,
             barrelGroup: launcher,
             barrelBaseZ: 0,
             muzzleOffset: new THREE.Vector3(0.44, 1.78, 1.05),
+            muzzleObject: muzzleMarker,
             chestGlow: torso.userData.sternum,
             chestGlow2: torso.userData.sternumGlow,
             visor: helmet.userData.visor,
@@ -423,10 +455,24 @@
             rightArm,
             leftLeg,
             rightLeg,
+            frontGrip,
+            rearGrip,
+            leftGripHand,
+            rightGripHand,
+            forceGripPose: true,
+            lastAimTime: 0,
             hasPhysics: false
         };
         group.scale.setScalar(0.48);
         return group;
+    }
+
+    function setRocketRobotAimYaw(model, yaw, time) {
+        if (!model || !model.userData || !model.userData.upperBody) return false;
+        model.userData.upperBody.rotation.y = yaw;
+        model.userData.lastAimTime = Number.isFinite(time) ? time : performance.now();
+        model.userData.isAiming = true;
+        return true;
     }
 
     function animateRocketRobotModel(model, time, amplitude) {
@@ -456,14 +502,19 @@
             if (leg.userData.kneePivot) leg.userData.kneePivot.rotation.x = Math.max(0, -sideStep) * 0.46 * walkAmount;
             if (leg.userData.anklePivot) leg.userData.anklePivot.rotation.x = Math.max(0, sideStep) * -0.24 * walkAmount;
         });
+        const aimFresh = time - (model.userData.lastAimTime || 0) < 420;
+        const holdingLauncher = model.userData.forceGripPose || aimFresh;
+        if (model.userData.upperBody && !aimFresh) {
+            model.userData.upperBody.rotation.y += (0 - model.userData.upperBody.rotation.y) * 0.08;
+        }
         [model.userData.leftArm, model.userData.rightArm].forEach((arm, index) => {
             if (!arm || !arm.userData) return;
             const sideStep = index === 0 ? -step : step;
             if (arm.userData.shoulderPivot) {
-                arm.userData.shoulderPivot.rotation.x = arm.userData.shoulderAngleX + sideStep * 0.12 * walkAmount;
+                arm.userData.shoulderPivot.rotation.x = arm.userData.shoulderAngleX + (holdingLauncher ? 0 : sideStep * 0.12 * walkAmount);
             }
             if (arm.userData.elbowPivot) {
-                arm.userData.elbowPivot.rotation.x = arm.userData.elbowAngleX + Math.abs(step) * 0.08 * walkAmount;
+                arm.userData.elbowPivot.rotation.x = arm.userData.elbowAngleX + (holdingLauncher ? 0 : Math.abs(step) * 0.08 * walkAmount);
             }
         });
         model.position.y = model.userData.baseY + Math.sin(time * 0.003) * 0.025 * amplitude + Math.abs(step) * 0.025 * walkAmount;
@@ -471,5 +522,6 @@
 
     root.createRocketLauncherModel = createRocketLauncherModel;
     root.createRocketRobotModel = createRocketRobotModel;
+    root.setRocketRobotAimYaw = setRocketRobotAimYaw;
     root.animateRocketRobotModel = animateRocketRobotModel;
 })(typeof window !== 'undefined' ? window : globalThis);

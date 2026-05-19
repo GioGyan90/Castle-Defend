@@ -10,7 +10,7 @@
     <main class="editor-shell">
         <header class="editor-topbar">
             <div>
-                <div class="editor-kicker">V162 地图资产编辑器</div>
+                <div class="editor-kicker">V170 地图资产编辑器</div>
                 <h1>Map Editor</h1>
             </div>
             <div class="file-actions">
@@ -26,6 +26,7 @@
                     <span>导入关卡</span>
                 </button>
                 <button id="addLevelBtn" type="button">新增关卡</button>
+                <a href="animation-assets.html" class="home-link tool-link">动画资产</a>
                 <a href="index.html" class="home-link">回到游戏</a>
                 <input id="fallbackFileInput" type="file" accept=".js,text/javascript,application/javascript" hidden>
                 <input id="levelImportFileInput" type="file" accept=".js,text/javascript,application/javascript" hidden>
@@ -96,6 +97,18 @@
                         <button id="addPointBtn" type="button">加节点</button>
                     </div>
                     <div id="pointsList" class="row-list"></div>
+                </div>
+
+                <div class="editor-card alt-path-card">
+                    <div class="card-head">
+                        <h2>Alternate 敌人路径</h2>
+                        <div class="mini-actions">
+                            <button id="copyAltPathBtn" type="button">复制主路</button>
+                            <button id="addAltPointBtn" type="button">加节点</button>
+                            <button id="clearAltPathBtn" type="button">清空</button>
+                        </div>
+                    </div>
+                    <div id="altPointsList" class="row-list"></div>
                 </div>
 
                 <div class="editor-card">

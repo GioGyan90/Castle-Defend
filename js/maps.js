@@ -119,7 +119,7 @@ var LEVELS = {
         enemies: 35,
         bossHp: 240,
         title: "Mission 2",
-        startingScore: 40,
+        startingScore: 20,
         availableDefenseWeapons: [
             2
         ],
@@ -157,10 +157,6 @@ var LEVELS = {
             {
                 x: 4.9,
                 z: 1.27
-            },
-            {
-                x: -0.93,
-                z: 11.21
             }
         ],
         enemyWaves: [
@@ -168,7 +164,7 @@ var LEVELS = {
                 label: "Portal A breach",
                 modelType: "portalA",
                 count: 3,
-                startMs: 1100,
+                startMs: 3000,
                 intervalMs: 1500,
                 path: "main",
                 health: 120,
@@ -178,7 +174,7 @@ var LEVELS = {
                 label: "Elite drone pass",
                 modelType: "eliteDrone",
                 count: 9,
-                startMs: 4100,
+                startMs: 4600,
                 intervalMs: 800,
                 path: "main",
                 health: 11,
@@ -201,7 +197,7 @@ var LEVELS = {
                 label: "Fin Boss",
                 modelType: "tankBoss",
                 count: 1,
-                startMs: 10800,
+                startMs: 12600,
                 intervalMs: 500,
                 path: "main",
                 health: 80,
@@ -212,7 +208,7 @@ var LEVELS = {
                 label: "Wave 6",
                 modelType: "hoverArmor",
                 count: 6,
-                startMs: 7400,
+                startMs: 9300,
                 intervalMs: 500,
                 path: "main",
                 health: 6,
@@ -248,12 +244,11 @@ var LEVELS = {
         }
     },
     "3": {
-        enemies: 49,
+        enemies: 71,
         bossHp: 250,
         title: "Mission 3",
-        startingScore: 42,
+        startingScore: 40,
         availableDefenseWeapons: [
-            1,
             4
         ],
         cameraExtent: 10.5,
@@ -283,20 +278,7 @@ var LEVELS = {
             [2.77, 7.71],
             [-4.07, 7.71]
         ],
-        slots: [
-            {
-                x: 6.35,
-                z: -3.31
-            },
-            {
-                x: 0.99,
-                z: 2.83
-            },
-            {
-                x: -2.29,
-                z: 3.63
-            }
-        ],
+        slots: [],
         enemyWaves: [
             {
                 label: "Robot scouts",
@@ -307,14 +289,14 @@ var LEVELS = {
                 path: "alternate",
                 health: 3,
                 scale: 1.55,
-                speed: 0.02
+                speed: 0.03
             },
             {
                 label: "Elite drones",
                 modelType: "eliteDrone",
-                count: 15,
-                startMs: 5600,
-                intervalMs: 940,
+                count: 35,
+                startMs: 3200,
+                intervalMs: 440,
                 path: "main",
                 health: 5,
                 scale: 0.95,
@@ -324,19 +306,19 @@ var LEVELS = {
                 label: "Boss",
                 modelType: "tankBoss",
                 count: 2,
-                startMs: 13900,
-                intervalMs: 5780,
+                startMs: 12100,
+                intervalMs: 6780,
                 path: "main",
-                health: 250,
+                health: 350,
                 speed: 0.01,
                 scale: 1
             },
             {
                 label: "Wave 4",
                 modelType: "portalA",
-                count: 4,
-                startMs: 11600,
-                intervalMs: 1700,
+                count: 6,
+                startMs: 8300,
+                intervalMs: 1980,
                 path: "main",
                 health: 70,
                 speed: 0,
@@ -371,13 +353,12 @@ var LEVELS = {
         }
     },
     "4": {
-        enemies: 104,
+        enemies: 106,
         bossHp: 240,
         title: "Mission 4",
-        startingScore: 15,
+        startingScore: 35,
         availableDefenseWeapons: [
             1,
-            2,
             3
         ],
         cameraExtent: 11.2,
@@ -408,20 +389,12 @@ var LEVELS = {
         ],
         slots: [
             {
-                x: -1.88,
-                z: -1.27
+                x: -2.03,
+                z: -1.69
             },
             {
-                x: -4.57,
-                z: 5.32
-            },
-            {
-                x: 4.84,
-                z: -0.41
-            },
-            {
-                x: 4.46,
-                z: 6.27
+                x: 4.57,
+                z: -0.83
             }
         ],
         enemyWaves: [
@@ -474,11 +447,11 @@ var LEVELS = {
             {
                 label: "Chopper boss warning",
                 modelType: "chopper",
-                count: 1,
-                startMs: 26000,
-                intervalMs: 1000,
+                count: 3,
+                startMs: 22000,
+                intervalMs: 7000,
                 path: "main",
-                health: 132,
+                health: 180,
                 speed: 0.02,
                 scale: 0.9,
                 hpBarY: 4.4
@@ -487,7 +460,7 @@ var LEVELS = {
                 label: "Armored close",
                 modelType: "armored",
                 count: 26,
-                startMs: 30000,
+                startMs: 23900,
                 intervalMs: 620,
                 path: "main",
                 health: 15,
@@ -498,20 +471,46 @@ var LEVELS = {
                 label: "Fin Boss",
                 modelType: "tankBoss",
                 count: 2,
-                startMs: 40000,
-                intervalMs: 1500,
+                startMs: 35300,
+                intervalMs: 3500,
                 path: "main",
                 health: 180,
                 speed: 0.02,
                 scale: 1
             }
-        ]
+        ],
+        cardRules: {
+            enabled: true,
+            cards: {
+                J: {
+                    enabled: true,
+                    price: 15,
+                    fireRateBonus: 0.25,
+                    damageBonus: 0,
+                    incomePerSecond: 0
+                },
+                Q: {
+                    enabled: true,
+                    price: 25,
+                    fireRateBonus: 0.15,
+                    damageBonus: 5,
+                    incomePerSecond: 0
+                },
+                K: {
+                    enabled: false,
+                    price: 35,
+                    fireRateBonus: 0.2,
+                    damageBonus: 10,
+                    incomePerSecond: 5
+                }
+            }
+        }
     },
     "5": {
         enemies: 110,
         bossHp: 288,
         title: "Mission 5",
-        startingScore: 30,
+        startingScore: 60,
         availableDefenseWeapons: [
             2,
             4
@@ -537,35 +536,21 @@ var LEVELS = {
         points: [
             [3.51, -10.73],
             [-4.66, -10.79],
-            [-4.81, 0.03],
-            [3.03, -1.53],
-            [6.56, 1.78],
-            [6.29, 6.21],
-            [1.44, 8.44],
-            [-4.72, 8.69]
-        ],
-        altEnemyPoints: [
-            [-6.2, -8.8],
-            [-6.2, 6.2],
-            [-0.9, 6.2],
-            [-0.9, 1.4],
-            [2.7, 1.4],
-            [2.7, -5],
-            [5.9, -5],
-            [5.9, 4.8]
+            [-4.9, -2.23],
+            [3.12, -3.18],
+            [6.85, 0.38],
+            [7.18, 5.64],
+            [2.23, 8.6],
+            [-4.9, 8.66]
         ],
         slots: [
             {
-                x: -2.26,
-                z: 3.5
+                x: 3.74,
+                z: 3.09
             },
             {
-                x: 1.49,
-                z: 3.79
-            },
-            {
-                x: -1.38,
-                z: -3.95
+                x: 0.87,
+                z: 5.19
             }
         ],
         enemyWaves: [
@@ -662,7 +647,7 @@ var LEVELS = {
                 startMs: 38280,
                 intervalMs: 4500,
                 path: "main",
-                health: 800,
+                health: 500,
                 speed: 0.01,
                 scale: 1
             },
@@ -684,7 +669,7 @@ var LEVELS = {
                 startMs: 48280,
                 intervalMs: 500,
                 path: "main",
-                health: 1200,
+                health: 800,
                 speed: 0.02,
                 scale: 1
             }
@@ -714,7 +699,15 @@ var LEVELS = {
                     incomePerSecond: 5
                 }
             }
-        }
+        },
+        altEnemyPoints: [
+            [-4.66, -10.79],
+            [-4.9, -2.23],
+            [3.12, -3.18],
+            [6.85, 0.38],
+            [7.18, 5.64],
+            [2.23, 8.6]
+        ]
     },
     "6": {
         enemies: 0,
@@ -856,7 +849,7 @@ var LEVELS = {
         }
     },
     "7": {
-        enemies: 50,
+        enemies: 75,
         title: "Mission 7",
         startingScore: 160,
         availableDefenseWeapons: [
@@ -897,10 +890,6 @@ var LEVELS = {
                 z: -1.46
             },
             {
-                x: 7.24,
-                z: -8.63
-            },
-            {
                 x: -7.65,
                 z: -3.15
             },
@@ -911,23 +900,15 @@ var LEVELS = {
             {
                 x: 8.36,
                 z: 4.27
-            },
-            {
-                x: 2.03,
-                z: 6.62
-            },
-            {
-                x: 10.55,
-                z: -4.11
             }
         ],
         enemyWaves: [
             {
                 label: "Wave 1",
                 modelType: "portalA",
-                count: 2,
-                startMs: 1000,
-                intervalMs: 500,
+                count: 12,
+                startMs: 2900,
+                intervalMs: 1460,
                 path: "main",
                 health: 30,
                 speedMin: 0.02,
@@ -971,9 +952,9 @@ var LEVELS = {
             {
                 label: "Wave 5",
                 modelType: "eliteDrone",
-                count: 10,
-                startMs: 22300,
-                intervalMs: 500,
+                count: 16,
+                startMs: 1100,
+                intervalMs: 1500,
                 path: "main",
                 health: 6,
                 speed: 0.02,
@@ -982,22 +963,22 @@ var LEVELS = {
             {
                 label: "Wave 6",
                 modelType: "heavyRobot",
-                count: 10,
-                startMs: 28800,
+                count: 18,
+                startMs: 13000,
                 intervalMs: 500,
                 path: "main",
                 health: 6,
-                speed: 0.02,
+                speed: 0.03,
                 scale: 1
             },
             {
                 label: "Wave 7",
                 modelType: "finalBossAlpha",
-                count: 2,
-                startMs: 24300,
-                intervalMs: 1500,
+                count: 3,
+                startMs: 18400,
+                intervalMs: 2500,
                 path: "main",
-                health: 600,
+                health: 680,
                 speed: 0.02,
                 scale: 1
             },
@@ -1041,12 +1022,13 @@ var LEVELS = {
         }
     },
     "8": {
-        enemies: 35,
+        enemies: 70,
         bossHp: 250,
         title: "Mission 8",
         startingScore: 30,
         availableDefenseWeapons: [
             2,
+            3,
             4
         ],
         cameraExtent: 12,
@@ -1068,35 +1050,35 @@ var LEVELS = {
         },
         roadWidth: 3.5,
         points: [
-            [-4.04, -7.55],
-            [0.22, -11.4],
+            [0.4, -3.57],
+            [0.34, -10.83],
             [9.25, -0.32],
-            [0.4, 7.23],
+            [0.49, 9.84],
             [-6.85, -1.34]
         ],
         slots: [
             {
-                x: 0.43,
-                z: 2.26
+                x: 1.11,
+                z: 3.88
             },
             {
-                x: 2.35,
-                z: 0.45
+                x: 2.92,
+                z: 1.75
             },
             {
-                x: 4.34,
-                z: -0.92
+                x: 4.69,
+                z: 0
             }
         ],
         enemyWaves: [
             {
                 label: "Opening robots",
                 modelType: "finalBossAlpha",
-                count: 6,
-                startMs: 1100,
-                intervalMs: 2500,
+                count: 8,
+                startMs: 2200,
+                intervalMs: 4250,
                 path: "main",
-                health: 130,
+                health: 280,
                 speedMin: 0.02,
                 speedMax: 0.03,
                 scale: 1.2
@@ -1104,11 +1086,11 @@ var LEVELS = {
             {
                 label: "Air follow-up",
                 modelType: "eliteDrone",
-                count: 23,
-                startMs: 3500,
-                intervalMs: 1800,
+                count: 44,
+                startMs: 800,
+                intervalMs: 530,
                 path: "main",
-                health: 15,
+                health: 45,
                 speedMin: 0.02,
                 speedMax: 0.03,
                 scale: 0.95
@@ -1118,9 +1100,20 @@ var LEVELS = {
                 modelType: "chopper",
                 count: 6,
                 startMs: 2000,
-                intervalMs: 8000,
+                intervalMs: 6080,
                 path: "main",
-                health: 120,
+                health: 200,
+                speed: 0.02,
+                scale: 1
+            },
+            {
+                label: "Wave 4",
+                modelType: "portalB",
+                count: 12,
+                startMs: 7000,
+                intervalMs: 2150,
+                path: "alternate",
+                health: 320,
                 speed: 0.02,
                 scale: 1
             }
@@ -1150,7 +1143,12 @@ var LEVELS = {
                     incomePerSecond: 5
                 }
             }
-        }
+        },
+        altEnemyPoints: [
+            [9.25, -0.32],
+            [0.5, 9.9],
+            [-6.85, -1.34]
+        ]
     },
     "9": {
         enemies: 174,
@@ -1158,7 +1156,6 @@ var LEVELS = {
         title: "Mission 9",
         startingScore: 80,
         availableDefenseWeapons: [
-            1,
             3,
             4
         ],
@@ -1190,10 +1187,6 @@ var LEVELS = {
             [-6.82, 5.6]
         ],
         slots: [
-            {
-                x: -0.19,
-                z: -4.62
-            },
             {
                 x: 6.47,
                 z: 5.29
@@ -1261,7 +1254,7 @@ var LEVELS = {
                 startMs: 15000,
                 intervalMs: 4500,
                 path: "alternate",
-                health: 40,
+                health: 340,
                 speed: 0.02,
                 scale: 1
             },
@@ -1288,7 +1281,7 @@ var LEVELS = {
                     incomePerSecond: 0
                 },
                 Q: {
-                    enabled: true,
+                    enabled: false,
                     price: 25,
                     fireRateBonus: 0.15,
                     damageBonus: 5,
@@ -1302,14 +1295,21 @@ var LEVELS = {
                     incomePerSecond: 5
                 }
             }
-        }
+        },
+        altEnemyPoints: [
+            [8.54, -0.51],
+            [2.8, 2.77],
+            [-3.57, -1.56],
+            [-6.76, 1.21],
+            [-6.82, 5.6]
+        ]
     },
     "10": {
         enemies: 0,
         bossHp: 0,
         title: "Mission 10 - Assault",
         attackMode: true,
-        startingScore: 360,
+        startingScore: 300,
         opponentBaseHp: 5,
         timeLimitMs: 90000,
         incomeAmount: 30,

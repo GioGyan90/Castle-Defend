@@ -1,6 +1,6 @@
 ﻿// UI language strings and version metadata.
 
-var APP_VERSION = 'V162';
+var APP_VERSION = 'V170';
 var currentLanguage = localStorage.getItem('castle_defense_language') || 'zh';
 
 var GAME_I18N = {

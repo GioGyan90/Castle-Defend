@@ -17,7 +17,20 @@ const Q_HELICOPTER_SUPPORT = {
     lastEngageAnnounce: 0
 };
 
-const Q_HELICOPTER_MOVE_RADIUS = 9;
+const Q_HELICOPTER_DEFAULTS = {
+    moveRadius: 9,
+    moveSpeed: 0.014,
+    facingYawOffset: -Math.PI / 2,
+    takeoffDurationMs: 820,
+    returnDurationMs: 980,
+    enterDurationMs: 1450,
+    lostTargetReturnDelayMs: 1100,
+    rotorSpeed: 0.5,
+    tailRotorSpeedRatio: 1.6,
+    bodyBankAmplitude: 0.025,
+    padSpinSpeed: 0.006,
+    combatAltitude: 1.18
+};
 
 function getQRuntime() {
     return window.CASTLE_DEFEND_RUNTIME || {};
@@ -128,7 +141,24 @@ function getQBullets() {
 }
 
 function getQHelicopterWeaponConfig() {
-    return getWeaponConfig('Q_HELICOPTER') || getWeaponConfig(2);
+    const railConfig = typeof getWeaponConfig === 'function' ? (getWeaponConfig(2) || {}) : {};
+    const supportConfig = typeof getWeaponConfig === 'function' ? (getWeaponConfig('Q_HELICOPTER') || {}) : {};
+    return Object.assign({}, Q_HELICOPTER_DEFAULTS, supportConfig, {
+        fireIntervalMs: railConfig.fireIntervalMs ?? supportConfig.fireIntervalMs,
+        burstTotal: railConfig.burstTotal ?? supportConfig.burstTotal,
+        damage: railConfig.damage ?? supportConfig.damage,
+        projectileSpeed: supportConfig.projectileSpeed ?? railConfig.projectileSpeed,
+        projectileSpeedDecay: supportConfig.projectileSpeedDecay ?? railConfig.projectileSpeedDecay,
+        projectileMinSpeed: supportConfig.projectileMinSpeed ?? railConfig.projectileMinSpeed,
+        projectileLife: supportConfig.projectileLife ?? railConfig.projectileLife
+    });
+}
+
+function getQHorizontalDistance(a, b) {
+    if (!a || !b) return Infinity;
+    const dx = a.x - b.x;
+    const dz = a.z - b.z;
+    return Math.sqrt(dx * dx + dz * dz);
 }
 
 function easeInOutCubicQHeli(t) {
@@ -273,6 +303,7 @@ function activateQHelicopterSupport() {
 
     const railConfig = getQHelicopterWeaponConfig();
     const hoverPosition = getQHelicopterHoverPosition();
+    const now = performance.now();
 
     const mesh = createQSupportHelicopter();
     mesh.position.copy(hoverPosition);
@@ -282,7 +313,7 @@ function activateQHelicopterSupport() {
     Q_HELICOPTER_SUPPORT.state = 'docked';
     Q_HELICOPTER_SUPPORT.mesh = mesh;
     Q_HELICOPTER_SUPPORT.pad = null;
-    Q_HELICOPTER_SUPPORT.enterStartTime = performance.now();
+    Q_HELICOPTER_SUPPORT.enterStartTime = now;
     Q_HELICOPTER_SUPPORT.from = null;
     Q_HELICOPTER_SUPPORT.to = null;
     Q_HELICOPTER_SUPPORT.pathPoints = null;
@@ -342,7 +373,7 @@ function getQHelicopterTarget(rangeType = 'sight', origin = getQHelicopterPadPos
     let bestDistance = Infinity;
     getQEnemies().forEach(enemy => {
         if (!enemy || enemy.isDead) return;
-        const distance = origin.distanceTo(enemy.mesh.position);
+        const distance = getQHorizontalDistance(origin, enemy.mesh.position);
         if (distance <= maxRange && distance < bestDistance) {
             bestTarget = enemy;
             bestDistance = distance;
@@ -351,28 +382,82 @@ function getQHelicopterTarget(rangeType = 'sight', origin = getQHelicopterPadPos
     return bestTarget;
 }
 
+function getQHelicopterCollisionEnemy() {
+    const mesh = Q_HELICOPTER_SUPPORT.mesh;
+    if (!mesh) return null;
+    let bestEnemy = null;
+    let bestDistance = Infinity;
+    getQEnemies().forEach(enemy => {
+        if (!enemy || enemy.isDead || enemy.isPortal || !enemy.mesh) return;
+        const horizontal = getQHorizontalDistance(mesh.position, enemy.mesh.position);
+        const vertical = Math.abs((mesh.position.y || 0) - (enemy.mesh.position.y || 0));
+        const enemyScale = enemy.mesh && enemy.mesh.scale ? Math.max(enemy.mesh.scale.x || 1, enemy.mesh.scale.z || 1, 1) : 1;
+        const enemyRadius = enemy.isBoss ? 2.1 * enemyScale : 0.58 * enemyScale;
+        const collisionRadius = 0.68 + enemyRadius;
+        if (horizontal <= collisionRadius && vertical <= (enemy.isBoss ? 3.2 : 2.05) && horizontal < bestDistance) {
+            bestDistance = horizontal;
+            bestEnemy = enemy;
+        }
+    });
+    return bestEnemy;
+}
+
+function triggerQHelicopterDestroyed() {
+    const mesh = Q_HELICOPTER_SUPPORT.mesh;
+    if (!mesh) return;
+    const position = mesh.position.clone();
+    if (typeof createFriendlyUnitExplosionEffect === 'function') {
+        createFriendlyUnitExplosionEffect(position, 2.6);
+    } else if (typeof createExplosionEffect === 'function') {
+        createExplosionEffect(position, 1.35);
+    }
+    if (typeof announceBattleEvent === 'function') {
+        announceBattleEvent('q-heli-down', 'Q helicopter down', position, 900);
+    }
+    if (typeof playTone === 'function') {
+        playTone(130, 'sawtooth', 0.18, 0.06);
+    }
+    resetQHelicopterSupport();
+    if (typeof releaseCardPurchase === 'function') {
+        releaseCardPurchase('Q');
+    }
+}
+
+function checkQHelicopterCollision() {
+    if (!Q_HELICOPTER_SUPPORT.active || !Q_HELICOPTER_SUPPORT.mesh) return false;
+    if (getQHelicopterCollisionEnemy()) {
+        triggerQHelicopterDestroyed();
+        return true;
+    }
+    return false;
+}
+
 function faceQHelicopterTarget(target) {
     const mesh = Q_HELICOPTER_SUPPORT.mesh;
     if (!mesh || !target || !target.mesh) return;
     const dx = target.mesh.position.x - mesh.position.x;
     const dz = target.mesh.position.z - mesh.position.z;
-    mesh.rotation.y = Math.atan2(dx, dz);
+    const config = getQHelicopterWeaponConfig();
+    const targetYaw = Math.atan2(dx, dz);
+    mesh.userData.aimYaw = targetYaw;
+    mesh.rotation.y = targetYaw + (Number.isFinite(config.facingYawOffset) ? config.facingYawOffset : 0);
 }
 
 function updateQHelicopterFlight(time) {
     const mesh = Q_HELICOPTER_SUPPORT.mesh;
     if (!mesh) return;
+    const config = getQHelicopterWeaponConfig();
     const mainRotor = mesh.userData.mainRotor;
     const tailRotor = mesh.userData.tailRotor;
-    const rotorSpeed = Q_HELICOPTER_SUPPORT.state === 'docked' ? 0 : 0.62;
+    const rotorSpeed = Q_HELICOPTER_SUPPORT.state === 'docked' ? 0 : (config.rotorSpeed || 0.5);
     if (mainRotor) mainRotor.rotation.y += rotorSpeed;
-    if (tailRotor) tailRotor.rotation.z += rotorSpeed * 1.6;
+    if (tailRotor) tailRotor.rotation.z += rotorSpeed * (config.tailRotorSpeedRatio || 1.6);
 
     if (Q_HELICOPTER_SUPPORT.pad) {
-        Q_HELICOPTER_SUPPORT.pad.rotation.y += 0.006;
+        Q_HELICOPTER_SUPPORT.pad.rotation.y += config.padSpinSpeed || 0.006;
     }
 
-    mesh.rotation.z = Q_HELICOPTER_SUPPORT.state === 'docked' ? 0 : Math.sin(time * 0.004) * 0.025;
+    mesh.rotation.z = Q_HELICOPTER_SUPPORT.state === 'docked' ? 0 : Math.sin(time * 0.004) * (config.bodyBankAmplitude || 0.025);
 }
 
 function getQHelicopterCombatPosition(target) {
@@ -382,7 +467,7 @@ function getQHelicopterCombatPosition(target) {
     const totalDistance = getQPathTotalDistance(targetPath);
     const config = getQHelicopterWeaponConfig();
     const targetDistance = getQDistanceOnPath(targetPath, target.mesh.position);
-    const moveRadius = Number.isFinite(config.moveRadius) ? config.moveRadius : Q_HELICOPTER_MOVE_RADIUS;
+    const moveRadius = Number.isFinite(config.moveRadius) ? config.moveRadius : Q_HELICOPTER_DEFAULTS.moveRadius;
     const outboundLimit = Math.max(0, totalDistance - moveRadius);
     const desiredDistance = Math.min(
         totalDistance,
@@ -392,7 +477,7 @@ function getQHelicopterCombatPosition(target) {
             totalDistance
         )
     );
-    return getQPointAtDistance(targetPath, desiredDistance, pad.y + 1.18);
+    return getQPointAtDistance(targetPath, desiredDistance, pad.y + (config.combatAltitude || Q_HELICOPTER_DEFAULTS.combatAltitude));
 }
 
 function moveQHelicopterAlongPathTo(destination, targetPath, time) {
@@ -413,12 +498,15 @@ function moveQHelicopterAlongPathTo(destination, targetPath, time) {
     }
     const previous = mesh.position.clone();
     const config = getQHelicopterWeaponConfig();
-    const moveSpeed = Number.isFinite(config.moveSpeed) ? config.moveSpeed : 0.055;
+    const moveSpeed = Number.isFinite(config.moveSpeed) ? config.moveSpeed : Q_HELICOPTER_DEFAULTS.moveSpeed;
     const step = Math.min(Math.abs(diff), moveSpeed * (dt / 16.67));
     Q_HELICOPTER_SUPPORT.routeDistance += Math.sign(diff) * step;
     mesh.position.copy(getQPointAtDistance(targetPath, Q_HELICOPTER_SUPPORT.routeDistance, destination.y));
     const delta = mesh.position.clone().sub(previous).setY(0);
-    if (delta.lengthSq() > 0.0001) mesh.rotation.y = Math.atan2(delta.x, delta.z);
+    if (delta.lengthSq() > 0.0001 && !Q_HELICOPTER_SUPPORT.target) {
+        const config = getQHelicopterWeaponConfig();
+        mesh.rotation.y = Math.atan2(delta.x, delta.z) + (Number.isFinite(config.facingYawOffset) ? config.facingYawOffset : 0);
+    }
     return false;
 }
 
@@ -465,7 +553,7 @@ function fireQHelicopterBullet(w, target, config) {
     const bulletList = getQBullets();
     if (!gameScene || !bulletList || !target || !target.mesh) return;
 
-    const yaw = w.mesh.rotation.y;
+    const yaw = Number.isFinite(w.mesh.userData.aimYaw) ? w.mesh.userData.aimYaw : w.mesh.rotation.y;
     const shotIndex = w.railShotIndex || 0;
     const side = shotIndex % 2 === 0 ? -1 : 1;
     w.railShotIndex = shotIndex + 1;
@@ -537,9 +625,15 @@ function updateQHelicopterSupport(time) {
 
     updateQHelicopterFlight(time);
 
+    if (getQHelicopterCollisionEnemy()) {
+        triggerQHelicopterDestroyed();
+        return;
+    }
+
     if (Q_HELICOPTER_SUPPORT.state === 'entering') {
+        const config = getQHelicopterWeaponConfig();
         Q_HELICOPTER_SUPPORT.moveStartTime = Q_HELICOPTER_SUPPORT.enterStartTime;
-        if (updateQHelicopterMotion(time, 1450)) {
+        if (updateQHelicopterMotion(time, config.enterDurationMs || Q_HELICOPTER_DEFAULTS.enterDurationMs)) {
             Q_HELICOPTER_SUPPORT.state = 'docked';
             Q_HELICOPTER_SUPPORT.mesh.position.copy(getQHelicopterHoverPosition());
         }
@@ -566,7 +660,8 @@ function updateQHelicopterSupport(time) {
     }
 
     if (Q_HELICOPTER_SUPPORT.state === 'takingOff') {
-        if (updateQHelicopterMotion(time, 520)) {
+        const config = getQHelicopterWeaponConfig();
+        if (updateQHelicopterMotion(time, config.takeoffDurationMs || Q_HELICOPTER_DEFAULTS.takeoffDurationMs)) {
             Q_HELICOPTER_SUPPORT.state = 'attacking';
         }
     }
@@ -577,18 +672,21 @@ function updateQHelicopterSupport(time) {
             const targetPath = sightTarget.pathPoints && sightTarget.pathPoints.length > 1 ? sightTarget.pathPoints : getQPrimaryPath();
             moveQHelicopterAlongPathTo(desired, targetPath, time);
             faceQHelicopterTarget(sightTarget);
-            const distanceToTarget = Q_HELICOPTER_SUPPORT.mesh.position.distanceTo(sightTarget.mesh.position);
+            const distanceToTarget = getQHorizontalDistance(Q_HELICOPTER_SUPPORT.mesh.position, sightTarget.mesh.position);
             const config = getQHelicopterWeaponConfig();
             if (attackTarget || distanceToTarget <= config.range) {
                 fireQHelicopterRailBurst(time, attackTarget || sightTarget);
             }
-        } else if (time - Q_HELICOPTER_SUPPORT.lastTargetSeen > 1100) {
-            moveQHelicopterTo('returning', getQHelicopterHoverPosition(), time);
+        } else {
+            const config = getQHelicopterWeaponConfig();
+            if (time - Q_HELICOPTER_SUPPORT.lastTargetSeen > (config.lostTargetReturnDelayMs || Q_HELICOPTER_DEFAULTS.lostTargetReturnDelayMs)) {
+                moveQHelicopterTo('returning', getQHelicopterHoverPosition(), time);
+            }
         }
         return;
     }
 
-    if (Q_HELICOPTER_SUPPORT.state === 'returning' && updateQHelicopterMotion(time, 720)) {
+    if (Q_HELICOPTER_SUPPORT.state === 'returning' && updateQHelicopterMotion(time, (getQHelicopterWeaponConfig().returnDurationMs || Q_HELICOPTER_DEFAULTS.returnDurationMs))) {
         Q_HELICOPTER_SUPPORT.state = 'docked';
         Q_HELICOPTER_SUPPORT.weapon.burstCount = 0;
     }
@@ -597,3 +695,4 @@ function updateQHelicopterSupport(time) {
 window.activateQHelicopterSupport = activateQHelicopterSupport;
 window.resetQHelicopterSupport = resetQHelicopterSupport;
 window.updateQHelicopterSupport = updateQHelicopterSupport;
+window.checkQHelicopterCollision = checkQHelicopterCollision;

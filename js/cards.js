@@ -138,7 +138,21 @@ function resetCardSystem() {
     if (typeof window !== 'undefined' && typeof window.resetJRocketSquadSupport === 'function') {
         window.resetJRocketSquadSupport();
     }
+    if (typeof window !== 'undefined' && typeof window.resetKOilWellSupport === 'function') {
+        window.resetKOilWellSupport();
+    }
     updateCardPanelUI();
+}
+
+function hasActiveCard(rank) {
+    return activeCards.has(rank);
+}
+
+function releaseCardPurchase(rank) {
+    if (!activeCards.has(rank)) return;
+    activeCards.delete(rank);
+    updateCardPanelUI();
+    if (typeof updateUI === 'function') updateUI();
 }
 
 function buyCard(rank) {
@@ -156,6 +170,9 @@ function buyCard(rank) {
     }
     if (rank === 'Q' && typeof window !== 'undefined' && typeof window.activateQHelicopterSupport === 'function') {
         window.activateQHelicopterSupport();
+    }
+    if (rank === 'K' && typeof window !== 'undefined' && typeof window.activateKOilWellSupport === 'function') {
+        window.activateKOilWellSupport();
     }
     if (typeof announceHighlight === 'function') {
         announceHighlight('card-' + rank, t('cardActivated', { rank }));
@@ -202,6 +219,9 @@ function getCardIncomePerSecond() {
 }
 
 function showCardIncomeText(amount) {
+    if (typeof window !== 'undefined' && typeof window.showKOilWellIncomeText === 'function' && window.showKOilWellIncomeText(amount)) {
+        return;
+    }
     const pop = document.createElement('div');
     pop.className = 'card-income-pop';
     pop.textContent = `+${amount}`;
@@ -271,3 +291,6 @@ function createPlayingCardModel(rank) {
     group.add(card);
     return group;
 }
+
+window.hasActiveCard = hasActiveCard;
+window.releaseCardPurchase = releaseCardPurchase;

@@ -43,8 +43,16 @@
             pointer-events: none;
         }
 
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
         .brand,
-        .asset-name {
+        .asset-name,
+        .topbar-link {
             padding: 8px 12px;
             border: 1px solid rgba(76, 236, 255, 0.34);
             border-radius: 8px;
@@ -61,6 +69,19 @@
         .asset-name {
             color: #ffffff;
             text-align: right;
+        }
+
+        .topbar-link {
+            color: #f4fbff;
+            text-decoration: none;
+            background: rgba(13, 33, 48, 0.84);
+            box-shadow: none;
+            font-size: 13px;
+        }
+
+        .topbar-link:hover {
+            border-color: rgba(255, 208, 0, 0.7);
+            color: #ffd000;
         }
 
         .control-panel {
@@ -264,9 +285,14 @@
             }
 
             .brand,
-            .asset-name {
+            .asset-name,
+            .topbar-link {
                 font-size: 12px;
                 padding: 7px 9px;
+            }
+
+            .topbar-left {
+                gap: 6px;
             }
 
             .control-panel {
@@ -291,7 +317,11 @@
 <body>
     <canvas id="stage"></canvas>
     <div class="topbar">
-        <div class="brand">V162 Animation Assets</div>
+        <div class="topbar-left">
+            <div class="brand">V170 Animation Assets</div>
+            <a class="topbar-link" href="map-editor.html">Map Editor</a>
+            <a class="topbar-link" href="index.html">Game</a>
+        </div>
         <div class="asset-name" id="assetName">Boss Explosion</div>
     </div>
 
@@ -334,6 +364,7 @@
     <script src="js/space_base.js"></script>
     <script src="js/enemies.js"></script>
     <script src="js/rocket_robot_assets.js"></script>
+    <script src="js/k_oil_well_support.js"></script>
     <script src="js/gallery.js"></script>
     <script src="js/animation_assets.js"></script>
     <script src="js/animation_showcase_assets.js"></script>
