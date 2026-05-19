@@ -1319,8 +1319,8 @@ var LEVELS = {
                 modelType: "tankBoss",
                 label: "Tank Boss",
                 price: 120,
-                health: 420,
-                speed: 0.035,
+                health: 500,
+                speed: 0.045,
                 scale: 1,
                 maxPurchases: 1,
                 category: "boss",
@@ -1354,7 +1354,7 @@ var LEVELS = {
                 label: "精英无人机",
                 price: 32,
                 health: 100,
-                speed: 0.038,
+                speed: 0.06,
                 scale: 0.95,
                 maxPurchases: 0,
                 category: "air"
@@ -1365,9 +1365,9 @@ var LEVELS = {
                 label: "Final Boss Alpha",
                 price: 160,
                 health: 260,
-                speed: 0.04,
+                speed: 0.054,
                 scale: 1,
-                maxPurchases: 1,
+                maxPurchases: 2,
                 category: "infantry",
                 hpBarY: 4.5
             }
