@@ -726,7 +726,7 @@ var LEVELS = {
                 label: "Heavy Robot",
                 price: 10,
                 health: 28,
-                speed: 0.02,
+                speed: 0.04,
                 scale: 1.22,
                 maxPurchases: 0,
                 category: "infantry"
@@ -759,8 +759,8 @@ var LEVELS = {
                 modelType: "wheelbarrow",
                 label: "独轮炮车",
                 price: 18,
-                health: 24,
-                speed: 0.02,
+                health: 34,
+                speed: 0.05,
                 scale: 0.85,
                 maxPurchases: 0,
                 category: "armor"
